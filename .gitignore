@@ -1,0 +1,20 @@
+# Runtime data (DB, VAPID keys — created at runtime)
+data/micarmelo.sqlite
+data/vapid.json
+
+# Node / Playwright
+node_modules/
+package-lock.json
+test-results/
+
+# OS files
+.DS_Store
+
+# Caches (fontconfig, npm, etc.)
+.cache/
+.fontconfig/
+.npm/
+.local/
+submit
+answer
+pet

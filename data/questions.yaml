@@ -1,0 +1,15 @@
+- question: "What color is the sky?"
+  answers:
+    - "blue"
+    - "Blue"
+    - "green"
+
+- question: "What is 2 + 2?"
+  answers:
+    - "4"
+    - "four"
+
+- question: "What animal says meow?"
+  answers:
+    - "cat"
+    - "Cat"
