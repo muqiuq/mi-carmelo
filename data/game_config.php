@@ -29,5 +29,8 @@ return [
 
     // Base URL for generating token links (include trailing slash)
     // Example: 'https://micarmelo.example.com/'
-    'base_url' => 'http://localhost:8080/'
+    'base_url' => 'http://localhost:8080/',
+
+    // Secret token for cron endpoints (e.g. send_hungry.php?token=...)
+    'cron_secret' => 'CHANGE_ME',
 ];

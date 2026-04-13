@@ -8,7 +8,7 @@ echo "Deploying to ${TARGET_HOST}:${TARGET_DIR} ..."
 
 ssh "$TARGET_HOST" "mkdir -p ${TARGET_DIR}/data"
 
-rsync -avz --delete \
+rsync -avz --delete --omit-dir-times \
     --include='index.php' \
     --include='sw.js' \
     --include='api/***' \
@@ -26,6 +26,6 @@ ssh "$TARGET_HOST" "test -f ${TARGET_DIR}/data/game_config.php" \
     || rsync -avz data/game_config.php "${TARGET_HOST}:${TARGET_DIR}/data/game_config.php"
 
 # Ensure data directory is writable by web server
-ssh "$TARGET_HOST" "chmod 775 ${TARGET_DIR}/data && chmod 664 ${TARGET_DIR}/data/*.yaml ${TARGET_DIR}/data/game_config.php 2>/dev/null || true"
+# ssh "$TARGET_HOST" "chmod 775 ${TARGET_DIR}/data && chmod 664 ${TARGET_DIR}/data/*.yaml ${TARGET_DIR}/data/game_config.php 2>/dev/null || true"
 
 echo "Done!"

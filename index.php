@@ -187,6 +187,7 @@ if (!empty($game_config['require_access_token'])) {
 
         <!-- ADMIN VIEW -->
         <div id="view-admin" class="view-section d-none">
+            <button class="btn btn-secondary mb-2 btn-admin-back">Back to Game</button>
             <h2>Admin Panel</h2>
             <div class="card mx-auto text-start mb-4" style="max-width: 600px;">
                 <div class="card-body">
@@ -253,7 +254,7 @@ if (!empty($game_config['require_access_token'])) {
                     <div id="admin-yaml-msg" class="mt-2 small"></div>
                 </div>
             </div>
-            <button id="btn-admin-back" class="btn btn-secondary mt-2">Back to Game</button>
+
             <div class="card mx-auto text-start mb-4 mt-3" style="max-width: 600px;">
                 <div class="card-body">
                     <h5>Push Notifications</h5>
@@ -277,6 +278,7 @@ if (!empty($game_config['require_access_token'])) {
                     <div id="admin-tokens-list"></div>
                 </div>
             </div>
+            <button class="btn btn-secondary mt-2 mb-3 btn-admin-back">Back to Game</button>
         </div>
 
         <!-- SETTINGS VIEW -->

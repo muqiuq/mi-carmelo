@@ -244,7 +244,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('admin-user-detail').classList.add('d-none');
     });
 
-    document.getElementById('btn-admin-back').addEventListener('click', () => { showView(viewGame); fetchStats(); });
+    document.querySelectorAll('.btn-admin-back').forEach(btn => {
+        btn.addEventListener('click', () => { showView(viewGame); fetchStats(); });
+    });
 
     document.getElementById('btn-user-detail-back').addEventListener('click', () => {
         document.getElementById('admin-user-detail').classList.add('d-none');
@@ -401,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('user-detail-title').textContent = user.username;
         document.getElementById('edit-user-username').value = user.username;
         document.getElementById('edit-user-password').value = '';
-        document.getElementById('edit-user-isadmin').checked = !!user.isadmin;
+        document.getElementById('edit-user-isadmin').checked = Number(user.isadmin) === 1;
         document.getElementById('user-detail-msg').textContent = '';
 
         // Load stats
@@ -436,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.href = '#';
                 item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
                 item.dataset.uid = u.id;
-                item.innerHTML = `<div><strong>${escapeHtml(u.username)}</strong>${u.isadmin ? ' <span class="badge bg-info">Admin</span>' : ''}</div><div class="text-muted small">💎 ${u.diamonds || 0} &nbsp; ⭐ ${u.stars || 0} &nbsp; 🏆 ${u.total_points || 0}</div>`;
+                item.innerHTML = `<div><strong>${escapeHtml(u.username)}</strong>${Number(u.isadmin) === 1 ? ' <span class="badge bg-info">Admin</span>' : ''}</div><div class="text-muted small">💎 ${u.diamonds || 0} &nbsp; ⭐ ${u.stars || 0} &nbsp; 🏆 ${u.total_points || 0}</div>`;
                 item.addEventListener('click', (e) => {
                     e.preventDefault();
                     openUserDetail(u.id);

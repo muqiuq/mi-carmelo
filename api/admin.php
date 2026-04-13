@@ -15,6 +15,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($action === 'list_users') {
         $stmt = $pdo->query("SELECT id, username, isadmin, total_points, diamonds, stars, last_fed FROM users");
         $users = $stmt->fetchAll();
+        foreach ($users as &$u) {
+            $u['id'] = (int)$u['id'];
+            $u['isadmin'] = (int)$u['isadmin'];
+            $u['total_points'] = (int)$u['total_points'];
+            $u['diamonds'] = (int)$u['diamonds'];
+            $u['stars'] = (int)$u['stars'];
+        }
+        unset($u);
         echo json_encode(['success' => true, 'users' => $users]);
     } elseif ($action === 'user_stats') {
         $user_id = (int)($_GET['user_id'] ?? 0);
