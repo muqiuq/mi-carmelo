@@ -86,31 +86,6 @@ chmod +x run-e2e.sh
 
 Playwright tests run inside a container — no local Node.js required.
 
-## 📁 Project structure
-
-```
-index.php           Main entry point (SPA with PHP access token gate)
-sw.js               Service worker for push notifications
-api/
-  config.php        Database init, schema, migrations
-  auth.php          Login, logout, session check
-  user.php          Stats, settings, password change
-  challenge.php     Question generation and answer validation
-  questions.php     YAML question parser
-  admin.php         User/question/token management
-  push.php          Web Push subscribe, send, debug
-  webpush_lib.php   Pure PHP Web Push (ECDH, AES-128-GCM, VAPID)
-css/style.css       Chicken sprite, animations, layout
-js/app.js           All frontend logic
-vendor/             Bootstrap 5.3 CSS + JS (vendored, no CDN)
-data/
-  game_config.php   Game configuration
-  questions.yaml    Challenge question pool
-  micarmelo.sqlite  SQLite database (auto-generated)
-  vapid.json        VAPID keys (auto-generated)
-  .htaccess         Denies direct HTTP access to data files
-```
-
 ## ⚠️ Disclaimer
 
 - Portions of this project were developed using Vibe Coding practices.
