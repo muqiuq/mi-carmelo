@@ -18,16 +18,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch();
         
         if ($user && password_verify($password, $user['password_hash'])) {
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_id'] = (int)$user['id'];
             $_SESSION['username'] = $user['username'];
-            $_SESSION['isadmin'] = $user['isadmin'];
+            $_SESSION['isadmin'] = (int)$user['isadmin'];
             
             echo json_encode([
                 'success' => true,
                 'user' => [
-                    'id' => $user['id'],
+                    'id' => (int)$user['id'],
                     'username' => $user['username'],
-                    'isadmin' => $user['isadmin']
+                    'isadmin' => (int)$user['isadmin']
                 ]
             ]);
         } else {
@@ -43,9 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode([
                 'authenticated' => true,
                 'user' => [
-                    'id' => $_SESSION['user_id'],
+                    'id' => (int)$_SESSION['user_id'],
                     'username' => $_SESSION['username'],
-                    'isadmin' => $_SESSION['isadmin']
+                    'isadmin' => (int)$_SESSION['isadmin']
                 ]
             ]);
         } else {

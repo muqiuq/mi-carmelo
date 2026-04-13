@@ -1,15 +1,119 @@
-- question: "What color is the sky?"
+- question: "1?"
   answers:
-    - "blue"
-    - "Blue"
-    - "green"
+    - "eins"
 
-- question: "What is 2 + 2?"
+- question: "2?"
   answers:
-    - "4"
-    - "four"
+    - "zwei"
 
-- question: "What animal says meow?"
+- question: "3?"
   answers:
-    - "cat"
-    - "Cat"
+    - "drei"
+
+- question: "4?"
+  answers:
+    - "vier"
+
+- question: "5?"
+  answers:
+    - "fünf"
+
+- question: "6?"
+  answers:
+    - "sechs"
+
+- question: "7?"
+  answers:
+    - "sieben"
+
+- question: "8?"
+  answers:
+    - "acht"
+
+- question: "9?"
+  answers:
+    - "neun"
+
+- question: "10?"
+  answers:
+    - "zehn"
+
+- question: "11?"
+  answers:
+    - "elf"
+
+- question: "12?"
+  answers:
+    - "zwölf"
+
+- question: "13?"
+  answers:
+    - "dreizehn"
+
+- question: "14?"
+  answers:
+    - "vierzehn"
+
+- question: "15?"
+  answers:
+    - "fünfzehn"
+
+- question: "16?"
+  answers:
+    - "sechzehn"
+
+- question: "17?"
+  answers:
+    - "siebzehn"
+
+- question: "18?"
+  answers:
+    - "achtzehn"
+
+- question: "19?"
+  answers:
+    - "neunzehn"
+
+- question: "20?"
+  answers:
+    - "zwanzig"
+
+- question: "21?"
+  answers:
+    - "einundzwanzig"
+
+- question: "22?"
+  answers:
+    - "zweiundzwanzig"
+
+- question: "55?"
+  answers:
+    - "fünfundfünfzig"
+
+- question: "72?"
+  answers:
+    - "zweiundsiebzig"
+
+- question: "92?"
+  answers:
+    - "zweiundneunzig"
+
+- question: "100?"
+  answers:
+    - "hundert"
+
+- question: "200?"
+  answers:
+    - "zweihundert"
+
+- question: "¿Quién?"
+  answers:
+    - "wer"
+
+- question: "¿Cómo?"
+  answers:
+    - "wie"
+
+- question: "¿Dónde?"
+  answers:
+    - "wo"

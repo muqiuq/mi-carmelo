@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- AUTHENTICATION ---
     async function checkAuth() {
-        const res = await fetch('/api/auth.php?action=check');
+        const res = await fetch('api/auth.php?action=check');
         const data = await res.json();
         if (data.authenticated) {
             currentUser = data.user;
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
 
-        const res = await fetch('/api/auth.php?action=login', {
+        const res = await fetch('api/auth.php?action=login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({username, password})
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     btnLogout.addEventListener('click', async () => {
-        await fetch('/api/auth.php?action=logout', { method: 'POST' });
+        await fetch('api/auth.php?action=logout', { method: 'POST' });
         currentUser = null;
         if (sessionCheckInterval) { clearInterval(sessionCheckInterval); sessionCheckInterval = null; }
         formLogin.reset();
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initGameView() {
         document.getElementById('user-display-name').textContent = `(${currentUser.username})`;
-        btnAdmin.classList.toggle('d-none', currentUser.isadmin !== 1);
+        btnAdmin.classList.toggle('d-none', Number(currentUser.isadmin) !== 1);
         
         await fetchStats();
         showView(viewGame);
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sessionCheckInterval) clearInterval(sessionCheckInterval);
         sessionCheckInterval = setInterval(async () => {
             try {
-                const res = await fetch('/api/auth.php?action=check');
+                const res = await fetch('api/auth.php?action=check');
                 const data = await res.json();
                 if (!data.authenticated) {
                     clearInterval(sessionCheckInterval);
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     async function fetchStats() {
-        const res = await fetch('/api/user.php?action=get_stats');
+        const res = await fetch('api/user.php?action=get_stats');
         const data = await res.json();
         if(data.success) {
             updateStatsUI(data.stats);
@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- SETTINGS ---
     btnSettings.addEventListener('click', async () => {
         settingsMsg.textContent = '';
-        const res = await fetch('/api/user.php?action=get_settings');
+        const res = await fetch('api/user.php?action=get_settings');
         const data = await res.json();
         if (data.success) {
             document.getElementById('setting-questions').value = data.settings.questions_per_challenge;
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newName = document.getElementById('edit-user-username').value.trim();
         const newAdmin = document.getElementById('edit-user-isadmin').checked ? 1 : 0;
         const newPwd = document.getElementById('edit-user-password').value;
-        const res = await fetch('/api/admin.php?action=edit_user', {
+        const res = await fetch('api/admin.php?action=edit_user', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({user_id: uid, username: newName, isadmin: newAdmin, password: newPwd})
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-detail-reset-feed').addEventListener('click', async () => {
         const btn = document.getElementById('btn-detail-reset-feed');
         btn.disabled = true;
-        const res = await fetch('/api/admin.php?action=reset_feed', {
+        const res = await fetch('api/admin.php?action=reset_feed', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({user_id: currentDetailUserId})
@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-detail-test-push').addEventListener('click', async () => {
         const btn = document.getElementById('btn-detail-test-push');
         btn.disabled = true;
-        const res = await fetch('/api/push.php?action=test_notify', {
+        const res = await fetch('api/push.php?action=test_notify', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({user_id: currentDetailUserId})
@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm(`Delete all push subscriptions for "${name}"?`)) return;
         const btn = document.getElementById('btn-detail-clear-subs');
         btn.disabled = true;
-        const res = await fetch('/api/push.php?action=clear_subscriptions', {
+        const res = await fetch('api/push.php?action=clear_subscriptions', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({user_id: currentDetailUserId})
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = adminUsers.find(u => u.id === currentDetailUserId);
         const name = user ? user.username : 'this user';
         if (!confirm(`Are you sure you want to delete user "${name}"?`)) return;
-        const res = await fetch('/api/admin.php?action=delete_user', {
+        const res = await fetch('api/admin.php?action=delete_user', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({user_id: currentDetailUserId})
@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = adminUsers.find(u => u.id === currentDetailUserId);
         const name = user ? user.username : 'this user';
         if (!confirm(`Kill ${name}'s chicken?`)) return;
-        const res = await fetch('/api/admin.php?action=kill_chicken', {
+        const res = await fetch('api/admin.php?action=kill_chicken', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({user_id: currentDetailUserId})
@@ -409,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statsDiv.innerHTML = '<div class="text-muted small">Loading stats...</div>';
         detail.classList.remove('d-none');
 
-        const res = await fetch(`/api/admin.php?action=user_stats&user_id=${userId}`);
+        const res = await fetch(`api/admin.php?action=user_stats&user_id=${userId}`);
         const d = await res.json();
         if (d.success && d.knowledge.length > 0) {
             let html = '<table class="table table-sm"><thead><tr><th>Question</th><th class="text-center">✅</th><th class="text-center">❌</th><th class="text-center">Learned</th></tr></thead><tbody>';
@@ -425,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadAdminData() {
         // Load users
-        const usersRes = await fetch('/api/admin.php?action=list_users');
+        const usersRes = await fetch('api/admin.php?action=list_users');
         const usersData = await usersRes.json();
         const listEl = document.getElementById('admin-users-list');
         listEl.innerHTML = '';
@@ -445,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         // Load questions
-        const yamlRes = await fetch('/api/admin.php?action=get_yaml');
+        const yamlRes = await fetch('api/admin.php?action=get_yaml');
         const yamlData = await yamlRes.json();
         if (yamlData.success) {
             const questions = parseYamlQuestions(yamlData.content);
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadPushDebug() {
         const debugDiv = document.getElementById('admin-push-debug');
         try {
-            const res = await fetch('/api/push.php?action=push_debug');
+            const res = await fetch('api/push.php?action=push_debug');
             const d = await res.json();
             if (!d.success) { debugDiv.textContent = 'Failed to load'; return; }
 
@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const listEl = document.getElementById('admin-tokens-list');
         const toggle = document.getElementById('toggle-require-token');
         try {
-            const res = await fetch('/api/admin.php?action=list_tokens');
+            const res = await fetch('api/admin.php?action=list_tokens');
             const d = await res.json();
             if (!d.success) { listEl.textContent = 'Failed to load'; return; }
 
@@ -524,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
             listEl.querySelectorAll('.btn-delete-token').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const tokenId = parseInt(btn.dataset.id);
-                    const res = await fetch('/api/admin.php?action=delete_token', {
+                    const res = await fetch('api/admin.php?action=delete_token', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({token_id: tokenId})
@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-generate-token').addEventListener('click', async () => {
         const btn = document.getElementById('btn-generate-token');
         btn.disabled = true;
-        const res = await fetch('/api/admin.php?action=generate_token', {
+        const res = await fetch('api/admin.php?action=generate_token', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: '{}'
@@ -559,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('toggle-require-token').addEventListener('change', async () => {
-        const res = await fetch('/api/admin.php?action=toggle_require_token', {
+        const res = await fetch('api/admin.php?action=toggle_require_token', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: '{}'
@@ -718,7 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const content = questionsToYaml(questions);
-        const res = await fetch('/api/admin.php?action=save_yaml', {
+        const res = await fetch('api/admin.php?action=save_yaml', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ content })
@@ -746,7 +746,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const username = document.getElementById('admin-new-username').value;
         const password = document.getElementById('admin-new-password').value;
         const isadmin = document.getElementById('admin-new-isadmin').checked ? 1 : 0;
-        const res = await fetch('/api/admin.php?action=create_user', {
+        const res = await fetch('api/admin.php?action=create_user', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ username, password, isadmin })
@@ -766,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
     formSettings.addEventListener('submit', async (e) => {
         e.preventDefault();
         const questionsValue = document.getElementById('setting-questions').value;
-        const res = await fetch('/api/user.php?action=update_settings', {
+        const res = await fetch('api/user.php?action=update_settings', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ questions_per_challenge: questionsValue })
@@ -779,7 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
     formPassword.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newPassword = document.getElementById('setting-password').value;
-        const res = await fetch('/api/user.php?action=change_password', {
+        const res = await fetch('api/user.php?action=change_password', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ new_password: newPassword })
@@ -830,7 +830,7 @@ document.addEventListener('DOMContentLoaded', () => {
         challengeType = type;
         
         try {
-            const res = await fetch(`/api/challenge.php?action=generate&type=${type}`);
+            const res = await fetch(`api/challenge.php?action=generate&type=${type}`);
             const data = await res.json();
             
             if (data.success) {
@@ -937,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
         challengeOverlay.classList.add('d-none');
         
         try {
-            const res = await fetch('/api/challenge.php?action=submit', {
+            const res = await fetch('api/challenge.php?action=submit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
         btnNotifications.classList.remove('d-none');
 
-        const reg = await navigator.serviceWorker.register('/sw.js');
+        const reg = await navigator.serviceWorker.register('sw.js');
         pushSubscription = await reg.pushManager.getSubscription();
         updateNotificationButton();
     }
@@ -1007,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const endpoint = pushSubscription.endpoint;
             await pushSubscription.unsubscribe();
             pushSubscription = null;
-            await fetch('/api/push.php?action=unsubscribe', {
+            await fetch('api/push.php?action=unsubscribe', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({endpoint})
@@ -1018,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const perm = await Notification.requestPermission();
             if (perm !== 'granted') return;
 
-            const keyRes = await fetch('/api/push.php?action=vapid_public_key');
+            const keyRes = await fetch('api/push.php?action=vapid_public_key');
             const keyData = await keyRes.json();
             if (!keyData.success) return;
 
@@ -1030,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const subJson = pushSubscription.toJSON();
-            await fetch('/api/push.php?action=subscribe', {
+            await fetch('api/push.php?action=subscribe', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -1058,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = true;
         msg.textContent = 'Sending...';
         msg.className = 'mt-2 small text-muted';
-        const res = await fetch('/api/push.php?action=send_hungry', {
+        const res = await fetch('api/push.php?action=send_hungry', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({})

@@ -1,0 +1,2 @@
+# Deny all direct HTTP access to data files
+Require all denied

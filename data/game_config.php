@@ -25,7 +25,7 @@ return [
 
     // Access token: require a valid token in the URL to load the app
     // Set to true to enable, false to disable
-    'require_access_token' => true,
+    'require_access_token' => false,
 
     // Base URL for generating token links (include trailing slash)
     // Example: 'https://micarmelo.example.com/'
