@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewGame = document.getElementById('view-game');
     const viewSettings = document.getElementById('view-settings');
     const viewAdmin = document.getElementById('view-admin');
-    const allViews = [viewLogin, viewGame, viewSettings, viewAdmin];
+    const viewShop = document.getElementById('view-shop');
+    const allViews = [viewLogin, viewGame, viewSettings, viewAdmin, viewShop];
 
     // Auth Selectors
     const formLogin = document.getElementById('form-login');
@@ -20,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // User/Settings Selectors
     const btnSettings = document.getElementById('btn-settings');
     const btnSettingsBack = document.getElementById('btn-settings-back');
+    const btnShop = document.getElementById('btn-shop');
+    const btnShopBack = document.getElementById('btn-shop-back');
     const btnAdmin = document.getElementById('btn-admin');
     const formSettings = document.getElementById('form-settings');
     const formPassword = document.getElementById('form-password');
@@ -148,6 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('diamond-count').textContent = stats.diamonds || 0;
         document.getElementById('star-count').textContent = stats.stars || 0;
         document.getElementById('point-count').textContent = stats.total_points || 0;
+        if (Array.isArray(stats.flower_slots)) {
+            renderFlowers(stats.flower_slots);
+        }
 
         const deadOverlay = document.getElementById('dead-overlay');
         const gameButtons = document.getElementById('game-buttons');
@@ -234,14 +240,168 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnSettingsBack.addEventListener('click', () => showView(viewGame));
 
+    // --- SHOP ---
+    btnShop.addEventListener('click', async () => {
+        await loadShop();
+        showView(viewShop);
+    });
+
+    btnShopBack.addEventListener('click', () => {
+        showView(viewGame);
+        fetchStats();
+    });
+
+    function currencyLabel(currency) {
+        if (currency === 'points') return 'Points';
+        if (currency === 'diamonds') return 'Diamonds';
+        if (currency === 'stars') return 'Stars';
+        return currency;
+    }
+
+    function currencyIcon(currency) {
+        if (currency === 'points') return '🏆';
+        if (currency === 'diamonds') return '💎';
+        if (currency === 'stars') return '⭐';
+        return '🪙';
+    }
+
+    function renderFlowers(slots) {
+        const decorEl = document.getElementById('pet-decor');
+        if (!decorEl) return;
+        decorEl.innerHTML = '';
+
+        const flowerSpots = [
+            { left: '8%', top: '20%' },
+            { left: '20%', top: '12%' },
+            { left: '32%', top: '18%' },
+            { left: '45%', top: '10%' },
+            { left: '58%', top: '17%' },
+            { left: '70%', top: '12%' },
+            { left: '82%', top: '20%' },
+            { left: '14%', top: '34%' },
+            { left: '50%', top: '30%' },
+            { left: '86%', top: '34%' }
+        ];
+
+        const flowerColors = ['', 'flower-red', 'flower-blue', 'flower-purple', 'flower-orange', 'flower-white'];
+
+        slots.forEach(slot => {
+            const idx = parseInt(slot, 10);
+            if (Number.isNaN(idx) || idx < 0 || idx >= flowerSpots.length) return;
+            const flower = document.createElement('div');
+            const colorClass = flowerColors[idx % flowerColors.length];
+            flower.className = 'wall-flower' + (colorClass ? ' ' + colorClass : '');
+            flower.style.left = flowerSpots[idx].left;
+            flower.style.top = flowerSpots[idx].top;
+            decorEl.appendChild(flower);
+        });
+    }
+
+    async function loadShop() {
+        const listEl = document.getElementById('shop-list');
+        const balanceEl = document.getElementById('shop-balance');
+        listEl.innerHTML = '<div class="text-muted">Laden...</div>';
+        balanceEl.textContent = '';
+
+        try {
+            const res = await fetch('api/shop.php?action=list');
+            const data = await res.json();
+            if (!data.success) {
+                listEl.innerHTML = '<div class="text-danger">Shop konnte nicht geladen werden.</div>';
+                return;
+            }
+
+            balanceEl.innerHTML = `💎 ${data.balances.diamonds} &nbsp; ⭐ ${data.balances.stars} &nbsp; 🏆 ${data.balances.points}`;
+
+            if (!data.items || data.items.length === 0) {
+                listEl.innerHTML = '<div class="text-muted">Momentan keine Artikel verfügbar.</div>';
+                return;
+            }
+
+            listEl.innerHTML = '';
+            data.items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'col-12 col-md-6';
+                const lockedClass = item.can_afford ? '' : ' shop-item-locked';
+                const isImplemented = item.code === 'flower_wall';
+                const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
+
+                card.innerHTML = `
+                    <div class="card h-100 text-start${lockedClass}">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title mb-1">${escapeHtml(item.name)}</h5>
+                            <p class="small text-muted mb-2">${escapeHtml(item.description)}</p>
+                            <div class="small mb-1">Preis: <strong>${currencyIcon(item.currency)} ${item.price} ${currencyLabel(item.currency)}</strong></div>
+                            <button class="btn btn-outline-primary btn-sm mt-auto btn-shop-buy" data-id="${item.id}" data-can-afford="${item.can_afford ? '1' : '0'}" ${item.remaining <= 0 ? 'disabled' : ''}>
+                                ${buyLabel}
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                listEl.appendChild(card);
+            });
+
+            listEl.querySelectorAll('.btn-shop-buy').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const itemId = parseInt(btn.dataset.id, 10);
+                    const res = await fetch('api/shop.php?action=buy', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ item_id: itemId })
+                    });
+                    const buyData = await res.json();
+                    if (!buyData.success) {
+                        alert(buyData.error || 'Kauf konnte nicht abgeschlossen werden.');
+                        return;
+                    }
+                    await fetchStats();
+                    showView(viewGame);
+                    spawnHearts();
+                });
+            });
+        } catch (e) {
+            listEl.innerHTML = '<div class="text-danger">Fehler beim Laden des Shops.</div>';
+        }
+    }
+
     // --- ADMIN PANEL ---
     let adminUsers = [];
     let currentDetailUserId = null;
 
     btnAdmin.addEventListener('click', async () => {
-        await loadAdminData();
         showView(viewAdmin);
-        document.getElementById('admin-user-detail').classList.add('d-none');
+        // Show menu, hide all sections
+        document.getElementById('admin-menu').classList.remove('d-none');
+        document.querySelectorAll('.admin-section').forEach(s => s.classList.add('d-none'));
+        document.querySelectorAll('.btn-admin-section').forEach(b => b.classList.remove('active'));
+    });
+
+    // Admin section menu navigation
+    document.querySelectorAll('.btn-admin-section').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const sectionId = btn.dataset.section;
+            document.querySelectorAll('.admin-section').forEach(s => s.classList.add('d-none'));
+            document.querySelectorAll('.btn-admin-section').forEach(b => b.classList.remove('active'));
+            document.getElementById(sectionId).classList.remove('d-none');
+            btn.classList.add('active');
+
+            if (sectionId === 'admin-section-users') {
+                await loadUsers();
+                document.getElementById('admin-user-detail').classList.add('d-none');
+            } else if (sectionId === 'admin-section-questions') {
+                await loadQuestions();
+            } else if (sectionId === 'admin-section-push') {
+                loadPushDebug();
+            } else if (sectionId === 'admin-section-tokens') {
+                loadTokens();
+            } else if (sectionId === 'admin-section-shop') {
+                loadShopAdmin();
+            } else if (sectionId === 'admin-section-ai') {
+                initAiSection();
+            }
+        });
     });
 
     document.querySelectorAll('.btn-admin-back').forEach(btn => {
@@ -259,22 +419,58 @@ document.addEventListener('DOMContentLoaded', () => {
         const newName = document.getElementById('edit-user-username').value.trim();
         const newAdmin = document.getElementById('edit-user-isadmin').checked ? 1 : 0;
         const newPwd = document.getElementById('edit-user-password').value;
+        const newPoints = parseInt(document.getElementById('edit-user-points').value, 10) || 0;
+        const newDiamonds = parseInt(document.getElementById('edit-user-diamonds').value, 10) || 0;
+        const newStars = parseInt(document.getElementById('edit-user-stars').value, 10) || 0;
         const res = await fetch('api/admin.php?action=edit_user', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({user_id: uid, username: newName, isadmin: newAdmin, password: newPwd})
+            body: JSON.stringify({user_id: uid, username: newName, isadmin: newAdmin, password: newPwd, total_points: newPoints, diamonds: newDiamonds, stars: newStars})
         });
         const d = await res.json();
         const msg = document.getElementById('user-detail-msg');
         if (d.success) {
             msg.textContent = 'User updated!';
             msg.className = 'small mb-3 text-success';
-            await loadAdminData();
+            await loadUsers();
             document.getElementById('user-detail-title').textContent = newName;
         } else {
             msg.textContent = d.error || 'Failed to update user';
             msg.className = 'small mb-3 text-danger';
         }
+    });
+
+    // Stat +/- buttons with diamond→star conversion
+    function applyDiamondStarConversion() {
+        const diamondsInput = document.getElementById('edit-user-diamonds');
+        const starsInput = document.getElementById('edit-user-stars');
+        let diamonds = parseInt(diamondsInput.value, 10) || 0;
+        let stars = parseInt(starsInput.value, 10) || 0;
+        if (diamonds >= 10) {
+            const earned = Math.floor(diamonds / 10);
+            stars += earned;
+            diamonds -= earned * 10;
+            diamondsInput.value = diamonds;
+            starsInput.value = stars;
+        }
+    }
+
+    document.querySelectorAll('.btn-stat-plus').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById(btn.dataset.target);
+            const step = parseInt(btn.dataset.step, 10) || 1;
+            input.value = (parseInt(input.value, 10) || 0) + step;
+            applyDiamondStarConversion();
+        });
+    });
+
+    document.querySelectorAll('.btn-stat-minus').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById(btn.dataset.target);
+            const step = parseInt(btn.dataset.step, 10) || 1;
+            const val = (parseInt(input.value, 10) || 0) - step;
+            input.value = Math.max(0, val);
+        });
     });
 
     // Detail action buttons
@@ -356,6 +552,58 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = false;
     });
 
+    document.getElementById('btn-detail-clean-stats').addEventListener('click', async () => {
+        const user = adminUsers.find(u => u.id === currentDetailUserId);
+        const name = user ? user.username : 'this user';
+        if (!confirm(`Statistiken gelöschter Fragen für "${name}" entfernen?`)) return;
+        const btn = document.getElementById('btn-detail-clean-stats');
+        btn.disabled = true;
+        const res = await fetch('api/admin.php?action=clean_deleted_stats', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: currentDetailUserId})
+        });
+        const d = await res.json();
+        const msg = document.getElementById('user-detail-msg');
+        if (d.success) {
+            msg.textContent = `${d.deleted} gelöschte Frage(n) entfernt.`;
+            msg.className = 'small mb-3 text-success';
+            openUserDetail(currentDetailUserId);
+        } else {
+            msg.textContent = d.error || 'Fehler';
+            msg.className = 'small mb-3 text-danger';
+        }
+        btn.disabled = false;
+    });
+
+    document.getElementById('btn-detail-clear-decos').addEventListener('click', async () => {
+        const user = adminUsers.find(u => u.id === currentDetailUserId);
+        const name = user ? user.username : 'this user';
+        if (!confirm(`Alle Dekorationen für "${name}" entfernen und Kosten erstatten?`)) return;
+        const btn = document.getElementById('btn-detail-clear-decos');
+        btn.disabled = true;
+        const res = await fetch('api/admin.php?action=clear_decorations', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: currentDetailUserId})
+        });
+        const d = await res.json();
+        const msg = document.getElementById('user-detail-msg');
+        if (d.success) {
+            let txt = `${d.deleted} Dekoration(en) entfernt. Erstattet:`;
+            if (d.refund.points) txt += ` 🏆${d.refund.points}`;
+            if (d.refund.diamonds) txt += ` 💎${d.refund.diamonds}`;
+            if (d.refund.stars) txt += ` ⭐${d.refund.stars}`;
+            msg.textContent = txt;
+            msg.className = 'small mb-3 text-success';
+            openUserDetail(currentDetailUserId);
+        } else {
+            msg.textContent = d.error || 'Fehler';
+            msg.className = 'small mb-3 text-danger';
+        }
+        btn.disabled = false;
+    });
+
     document.getElementById('btn-detail-delete').addEventListener('click', async () => {
         const user = adminUsers.find(u => u.id === currentDetailUserId);
         const name = user ? user.username : 'this user';
@@ -371,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = document.getElementById('admin-user-msg');
             msg.textContent = `User "${name}" deleted.`;
             msg.className = 'mt-2 small text-success';
-            await loadAdminData();
+            await loadUsers();
         }
     });
 
@@ -404,6 +652,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-user-username').value = user.username;
         document.getElementById('edit-user-password').value = '';
         document.getElementById('edit-user-isadmin').checked = Number(user.isadmin) === 1;
+        document.getElementById('edit-user-points').value = user.total_points || 0;
+        document.getElementById('edit-user-diamonds').value = user.diamonds || 0;
+        document.getElementById('edit-user-stars').value = user.stars || 0;
         document.getElementById('user-detail-msg').textContent = '';
 
         // Load stats
@@ -425,8 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadAdminData() {
-        // Load users
+    async function loadUsers() {
         const usersRes = await fetch('api/admin.php?action=list_users');
         const usersData = await usersRes.json();
         const listEl = document.getElementById('admin-users-list');
@@ -446,18 +696,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 listEl.appendChild(item);
             });
         }
-        // Load questions
+    }
+
+    async function loadQuestions() {
         const yamlRes = await fetch('api/admin.php?action=get_yaml');
         const yamlData = await yamlRes.json();
         if (yamlData.success) {
             const questions = parseYamlQuestions(yamlData.content);
             renderQuestionEditor(questions);
         }
+    }
 
-        // Load push debug info
+    async function loadAdminData() {
+        await loadUsers();
+        await loadQuestions();
         loadPushDebug();
-
-        // Load access tokens
         loadTokens();
     }
 
@@ -539,6 +792,165 @@ document.addEventListener('DOMContentLoaded', () => {
             listEl.textContent = 'Error loading tokens';
         }
     }
+
+    async function loadShopAdmin() {
+        const container = document.getElementById('admin-shop-content');
+        container.textContent = 'Laden...';
+        try {
+            const res = await fetch('api/admin.php?action=shop_stats');
+            const data = await res.json();
+            if (!data.success) { container.textContent = 'Fehler'; return; }
+            const items = data.items;
+            const users = data.users;
+            const owned = data.owned || {};
+            const currencyIcon = c => c === 'points' ? '🏆' : c === 'diamonds' ? '💎' : '⭐';
+            let html = '';
+            for (const item of items) {
+                html += `<h6 class="mt-3 mb-2">${escapeHtml(item.name)} <span class="text-muted small">(${currencyIcon(item.currency)} ${item.price}, max ${item.max_quantity})</span></h6>`;
+                html += '<table class="table table-sm table-bordered mb-0"><thead><tr><th>User</th><th class="text-center">Gekauft</th><th class="text-center">Verfügbar</th></tr></thead><tbody>';
+                for (const u of users) {
+                    const o = (owned[u.id] && owned[u.id][item.code]) || 0;
+                    const remaining = Math.max(0, item.max_quantity - o);
+                    html += `<tr><td>${escapeHtml(u.username)}</td><td class="text-center">${o}</td><td class="text-center">${remaining}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+            container.innerHTML = html;
+        } catch (e) {
+            container.textContent = 'Failed to load';
+        }
+    }
+
+    // --- AI QUESTION GENERATOR ---
+    let aiLastTopic = '';
+
+    async function initAiSection() {
+        const noKey = document.getElementById('ai-no-key');
+        const formArea = document.getElementById('ai-form-area');
+        try {
+            const res = await fetch('api/ai_questions.php?action=check_key');
+            const d = await res.json();
+            if (!d.has_key) {
+                noKey.classList.remove('d-none');
+                formArea.classList.add('d-none');
+            } else {
+                noKey.classList.add('d-none');
+                formArea.classList.remove('d-none');
+            }
+        } catch (e) {
+            noKey.classList.remove('d-none');
+            formArea.classList.add('d-none');
+        }
+        document.getElementById('ai-results').classList.add('d-none');
+        document.getElementById('ai-error').classList.add('d-none');
+        document.getElementById('ai-add-msg').textContent = '';
+    }
+
+    async function generateAiQuestions(topic) {
+        const spinner = document.getElementById('ai-spinner');
+        const errorEl = document.getElementById('ai-error');
+        const resultsEl = document.getElementById('ai-results');
+        const listEl = document.getElementById('ai-questions-list');
+        const btnGen = document.getElementById('btn-ai-generate');
+
+        spinner.classList.remove('d-none');
+        errorEl.classList.add('d-none');
+        resultsEl.classList.add('d-none');
+        btnGen.disabled = true;
+        document.getElementById('ai-add-msg').textContent = '';
+
+        try {
+            const res = await fetch('api/ai_questions.php?action=generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ topic })
+            });
+            const d = await res.json();
+            spinner.classList.add('d-none');
+            btnGen.disabled = false;
+
+            if (!d.success) {
+                errorEl.textContent = d.error || 'Generation failed.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+
+            listEl.innerHTML = '';
+            d.questions.forEach((q, i) => {
+                const div = document.createElement('div');
+                div.className = 'form-check border rounded p-2 mb-2';
+                const answersStr = q.answers.map(a => escapeHtml(a)).join(' / ');
+                div.innerHTML = `
+                    <input class="form-check-input ai-q-check" type="checkbox" id="ai-q-${i}" checked data-index="${i}">
+                    <label class="form-check-label" for="ai-q-${i}">
+                        <strong>${escapeHtml(q.question)}</strong><br>
+                        <span class="text-muted small">${answersStr}</span>
+                    </label>
+                `;
+                div.dataset.question = JSON.stringify(q);
+                listEl.appendChild(div);
+            });
+
+            resultsEl.classList.remove('d-none');
+        } catch (e) {
+            spinner.classList.add('d-none');
+            btnGen.disabled = false;
+            errorEl.textContent = 'Network error: ' + (e.message || e) + '. Please try again.';
+            errorEl.classList.remove('d-none');
+        }
+    }
+
+    document.getElementById('btn-ai-generate').addEventListener('click', () => {
+        const topic = document.getElementById('ai-topic').value.trim();
+        if (!topic) { document.getElementById('ai-topic').focus(); return; }
+        aiLastTopic = topic;
+        generateAiQuestions(topic);
+    });
+
+    document.getElementById('btn-ai-retry').addEventListener('click', () => {
+        const topic = aiLastTopic || document.getElementById('ai-topic').value.trim();
+        if (!topic) { document.getElementById('ai-topic').focus(); return; }
+        generateAiQuestions(topic);
+    });
+
+    document.getElementById('btn-ai-add').addEventListener('click', async () => {
+        const checks = document.querySelectorAll('#ai-questions-list .ai-q-check:checked');
+        if (checks.length === 0) {
+            document.getElementById('ai-add-msg').textContent = 'Please select at least one question.';
+            document.getElementById('ai-add-msg').className = 'small mt-2 text-warning';
+            return;
+        }
+        const selected = [];
+        checks.forEach(cb => {
+            const container = cb.closest('[data-question]');
+            if (container) selected.push(JSON.parse(container.dataset.question));
+        });
+
+        const btn = document.getElementById('btn-ai-add');
+        btn.disabled = true;
+        try {
+            const res = await fetch('api/ai_questions.php?action=add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ questions: selected })
+            });
+            const d = await res.json();
+            const msg = document.getElementById('ai-add-msg');
+            if (d.success) {
+                msg.textContent = `${d.added} question(s) added!`;
+                msg.className = 'small mt-2 text-success';
+                // Uncheck added items
+                checks.forEach(cb => { cb.checked = false; cb.disabled = true; });
+            } else {
+                msg.textContent = d.error || 'Failed to add questions.';
+                msg.className = 'small mt-2 text-danger';
+            }
+        } catch (e) {
+            document.getElementById('ai-add-msg').textContent = 'Network error: ' + (e.message || e);
+            document.getElementById('ai-add-msg').className = 'small mt-2 text-danger';
+        }
+        btn.disabled = false;
+    });
 
     document.getElementById('btn-generate-token').addEventListener('click', async () => {
         const btn = document.getElementById('btn-generate-token');
@@ -756,7 +1168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (data.success) {
             document.getElementById('form-create-user').reset();
-            await loadAdminData();
+            await loadUsers();
             msg.textContent = 'User created!';
             msg.className = 'mt-2 small text-success';
         } else {

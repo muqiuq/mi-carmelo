@@ -188,6 +188,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         $response_stats['is_hungry'] = true;
     }
 
+    $decorStmt = $pdo->prepare("SELECT slot_index FROM user_decorations WHERE user_id = ? AND item_code = 'flower_wall' ORDER BY slot_index ASC");
+    $decorStmt->execute([$_SESSION['user_id']]);
+    $flower_slots = [];
+    foreach ($decorStmt->fetchAll() as $row) {
+        $flower_slots[] = (int)$row['slot_index'];
+    }
+    $response_stats['flower_slots'] = $flower_slots;
+
     echo json_encode([
         'success' => true,
         'stats' => $response_stats,

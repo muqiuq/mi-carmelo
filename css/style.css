@@ -5,6 +5,16 @@ body {
     font-family: system-ui, -apple-system, sans-serif;
 }
 
+.shop-item-locked {
+    border: 1px dashed #adb5bd;
+    background: #f1f3f5;
+}
+
+.shop-item-locked .btn-shop-buy {
+    border-color: #adb5bd;
+    color: #6c757d;
+}
+
 /* =========================================================
    CHICKEN STAGE — the area the chicken walks within
    ========================================================= */
@@ -16,6 +26,55 @@ body {
     margin: 2rem auto 0;
     overflow: hidden;
 }
+
+#pet-decor {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+#chicken-sprite {
+    z-index: 2;
+}
+
+.wall-flower {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #ffd43b;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+    opacity: 0.95;
+}
+
+.wall-flower::before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    top: 0;
+    left: 0;
+    border-radius: 50%;
+    background: #ff85b3;
+    box-shadow:
+        -8px 0 0 #ff85b3,
+        8px 0 0 #ff85b3,
+        0 -8px 0 #ff85b3,
+        0 8px 0 #ff85b3,
+        -6px -6px 0 #ff9ec5,
+        6px -6px 0 #ff9ec5,
+        -6px 6px 0 #ff9ec5,
+        6px 6px 0 #ff9ec5;
+    z-index: -1;
+}
+
+.wall-flower.flower-red::before { background: #e74c3c; box-shadow: -8px 0 0 #e74c3c, 8px 0 0 #e74c3c, 0 -8px 0 #e74c3c, 0 8px 0 #e74c3c, -6px -6px 0 #f1948a, 6px -6px 0 #f1948a, -6px 6px 0 #f1948a, 6px 6px 0 #f1948a; }
+.wall-flower.flower-blue::before { background: #5dade2; box-shadow: -8px 0 0 #5dade2, 8px 0 0 #5dade2, 0 -8px 0 #5dade2, 0 8px 0 #5dade2, -6px -6px 0 #85c1e9, 6px -6px 0 #85c1e9, -6px 6px 0 #85c1e9, 6px 6px 0 #85c1e9; }
+.wall-flower.flower-purple::before { background: #a569bd; box-shadow: -8px 0 0 #a569bd, 8px 0 0 #a569bd, 0 -8px 0 #a569bd, 0 8px 0 #a569bd, -6px -6px 0 #c39bd3, 6px -6px 0 #c39bd3, -6px 6px 0 #c39bd3, 6px 6px 0 #c39bd3; }
+.wall-flower.flower-orange::before { background: #e67e22; box-shadow: -8px 0 0 #e67e22, 8px 0 0 #e67e22, 0 -8px 0 #e67e22, 0 8px 0 #e67e22, -6px -6px 0 #f0b27a, 6px -6px 0 #f0b27a, -6px 6px 0 #f0b27a, 6px 6px 0 #f0b27a; }
+.wall-flower.flower-white::before { background: #f0f0f0; box-shadow: -8px 0 0 #f0f0f0, 8px 0 0 #f0f0f0, 0 -8px 0 #f0f0f0, 0 8px 0 #f0f0f0, -6px -6px 0 #fafafa, 6px -6px 0 #fafafa, -6px 6px 0 #fafafa, 6px 6px 0 #fafafa; }
 
 /* ---- Speech bubble ---- */
 #speech-bubble {

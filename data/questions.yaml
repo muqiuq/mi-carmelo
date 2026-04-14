@@ -117,3 +117,28 @@
 - question: "¿Dónde?"
   answers:
     - "wo"
+
+- question: "agua"
+  answers:
+    - "Wasser"
+    - "das Wasser"
+
+- question: "pan"
+  answers:
+    - "Brot"
+    - "das Brot"
+
+- question: "leche"
+  answers:
+    - "Milch"
+    - "die Milch"
+
+- question: "manzana"
+  answers:
+    - "Apfel"
+    - "der Apfel"
+
+- question: "comer"
+  answers:
+    - "essen"
+    - "zu essen"

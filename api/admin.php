@@ -56,6 +56,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $file = __DIR__ . '/../data/questions.yaml';
         $content = file_exists($file) ? file_get_contents($file) : '';
         echo json_encode(['success' => true, 'content' => $content]);
+    } elseif ($action === 'shop_stats') {
+        $items = $pdo->query("SELECT id, code, name, currency, price, max_quantity, sort_order FROM shop_items WHERE is_active = 1 ORDER BY sort_order ASC, id ASC")->fetchAll();
+        $users = $pdo->query("SELECT id, username FROM users ORDER BY username ASC")->fetchAll();
+        $decoStmt = $pdo->query("SELECT user_id, item_code, COUNT(*) AS owned FROM user_decorations GROUP BY user_id, item_code");
+        $owned = [];
+        foreach ($decoStmt as $row) {
+            $owned[(int)$row['user_id']][$row['item_code']] = (int)$row['owned'];
+        }
+        echo json_encode(['success' => true, 'items' => $items, 'users' => $users, 'owned' => $owned]);
     } elseif ($action === 'list_tokens') {
         $game_config = require __DIR__ . '/../data/game_config.php';
         $tokens = $pdo->query("SELECT id, token, created_at, expires_at FROM access_tokens ORDER BY created_at DESC")->fetchAll();
@@ -129,16 +138,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         try {
+            $total_points = isset($data['total_points']) ? max(0, (int)$data['total_points']) : null;
+            $diamonds = isset($data['diamonds']) ? max(0, (int)$data['diamonds']) : null;
+            $stars = isset($data['stars']) ? max(0, (int)$data['stars']) : null;
+
             if ($password !== '') {
-                $stmt = $pdo->prepare("UPDATE users SET username = ?, password_hash = ?, isadmin = ? WHERE id = ?");
-                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $isadmin, $user_id]);
+                $stmt = $pdo->prepare("UPDATE users SET username = ?, password_hash = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars) WHERE id = ?");
+                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $isadmin, $total_points, $diamonds, $stars, $user_id]);
             } else {
-                $stmt = $pdo->prepare("UPDATE users SET username = ?, isadmin = ? WHERE id = ?");
-                $stmt->execute([$username, $isadmin, $user_id]);
+                $stmt = $pdo->prepare("UPDATE users SET username = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars) WHERE id = ?");
+                $stmt->execute([$username, $isadmin, $total_points, $diamonds, $stars, $user_id]);
             }
             echo json_encode(['success' => true]);
         } catch(PDOException $e) {
             echo json_encode(['success' => false, 'error' => 'Username might already exist.']);
+        }
+    } elseif ($action === 'clean_deleted_stats') {
+        $user_id = (int)($data['user_id'] ?? 0);
+        if ($user_id <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Invalid user ID']);
+            exit;
+        }
+        require_once 'questions.php';
+        $all_questions = getQuestions();
+        $valid_hashes = [];
+        foreach ($all_questions as $q) {
+            $valid_hashes[] = $q['id'];
+        }
+        if (empty($valid_hashes)) {
+            $stmt = $pdo->prepare("DELETE FROM user_knowledge WHERE user_id = ?");
+            $stmt->execute([$user_id]);
+            $deleted = $stmt->rowCount();
+        } else {
+            $placeholders = implode(',', array_fill(0, count($valid_hashes), '?'));
+            $params = array_merge([$user_id], $valid_hashes);
+            $stmt = $pdo->prepare("DELETE FROM user_knowledge WHERE user_id = ? AND question_hash NOT IN ($placeholders)");
+            $stmt->execute($params);
+            $deleted = $stmt->rowCount();
+        }
+        echo json_encode(['success' => true, 'deleted' => $deleted]);
+    } elseif ($action === 'clear_decorations') {
+        $user_id = (int)($data['user_id'] ?? 0);
+        if ($user_id <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Invalid user ID']);
+            exit;
+        }
+        try {
+            $pdo->beginTransaction();
+            $decoStmt = $pdo->prepare("SELECT item_code, COUNT(*) AS cnt FROM user_decorations WHERE user_id = ? GROUP BY item_code");
+            $decoStmt->execute([$user_id]);
+            $groups = $decoStmt->fetchAll();
+            $refund = ['points' => 0, 'diamonds' => 0, 'stars' => 0];
+            foreach ($groups as $g) {
+                $shopStmt = $pdo->prepare("SELECT currency, price FROM shop_items WHERE code = ?");
+                $shopStmt->execute([$g['item_code']]);
+                $shopItem = $shopStmt->fetch();
+                if ($shopItem) {
+                    $key = $shopItem['currency'] === 'points' ? 'points' : $shopItem['currency'];
+                    $refund[$key] += (int)$shopItem['price'] * (int)$g['cnt'];
+                }
+            }
+            $delStmt = $pdo->prepare("DELETE FROM user_decorations WHERE user_id = ?");
+            $delStmt->execute([$user_id]);
+            $totalDeleted = $delStmt->rowCount();
+            if ($refund['points'] > 0) {
+                $pdo->prepare("UPDATE users SET total_points = total_points + ? WHERE id = ?")->execute([$refund['points'], $user_id]);
+            }
+            if ($refund['diamonds'] > 0) {
+                $pdo->prepare("UPDATE users SET diamonds = diamonds + ? WHERE id = ?")->execute([$refund['diamonds'], $user_id]);
+            }
+            if ($refund['stars'] > 0) {
+                $pdo->prepare("UPDATE users SET stars = stars + ? WHERE id = ?")->execute([$refund['stars'], $user_id]);
+            }
+            $pdo->commit();
+            echo json_encode(['success' => true, 'deleted' => $totalDeleted, 'refund' => $refund]);
+        } catch (PDOException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            echo json_encode(['success' => false, 'error' => 'Refund failed']);
         }
     } elseif ($action === 'kill_chicken') {
         $user_id = (int)($data['user_id'] ?? 0);
@@ -147,6 +223,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
         $stmt = $pdo->prepare("UPDATE users SET is_dead = 1 WHERE id = ?");
+        $stmt->execute([$user_id]);
+        echo json_encode(['success' => true]);
+    } elseif ($action === 'revive_chicken') {
+        $user_id = (int)($data['user_id'] ?? 0);
+        if ($user_id <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Invalid user ID']);
+            exit;
+        }
+        $stmt = $pdo->prepare("UPDATE users SET is_dead = 0, last_fed = NULL WHERE id = ?");
         $stmt->execute([$user_id]);
         echo json_encode(['success' => true]);
     } elseif ($action === 'generate_token') {

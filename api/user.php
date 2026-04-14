@@ -95,6 +95,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $last_fed_time = strtotime($stats['last_fed'] . " UTC");
             $stats['next_feed_ts'] = $last_fed_time + $game_config['feeding_interval_seconds'];
         }
+
+        $decorStmt = $pdo->prepare("SELECT slot_index FROM user_decorations WHERE user_id = ? AND item_code = 'flower_wall' ORDER BY slot_index ASC");
+        $decorStmt->execute([$_SESSION['user_id']]);
+        $flower_slots = [];
+        foreach ($decorStmt->fetchAll() as $row) {
+            $flower_slots[] = (int)$row['slot_index'];
+        }
+        $stats['flower_slots'] = $flower_slots;
+
         unset($stats['last_fed']);
         
         echo json_encode(['success' => true, 'stats' => $stats]);

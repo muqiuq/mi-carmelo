@@ -28,6 +28,7 @@
 - users can change their password
 - each user has it's own chicken and own score
 - automated end to end tests with a suitable framework 
+- always run tests
 - No "?>" at the end of PHP files if they are not required
 - All parameters for example how often the chicken needs feeding, scoring, etc, is in one config file somewhere
 - NEVER RUN node or npm directly on the host devices. always in the container!
