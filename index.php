@@ -32,7 +32,7 @@ if (!empty($game_config['require_access_token'])) {
     <title>Mi Carmelo - Virtual Pet Chicken</title>
     <!-- Twitter Bootstrap 5.3.8 CSS -->
     <link href="vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=<?= filemtime(__DIR__ . '/css/style.css') ?>">
 </head>
 <body>
     <div class="container-fluid text-center mt-3" id="app">
@@ -413,6 +413,6 @@ if (!empty($game_config['require_access_token'])) {
 
     <!-- Twitter Bootstrap 5.3.8 JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=<?= filemtime(__DIR__ . '/js/app.js') ?>"></script>
 </body>
 </html>
