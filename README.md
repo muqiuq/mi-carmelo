@@ -15,6 +15,13 @@ Mi Carmelo is a web-based virtual pet chicken game where players care for an ani
 - Mobile-first responsive UI with vendored Bootstrap 5.3
 - Optional URL-based access tokens for restricting access
 - Spanish UI, German/Spanish challenge questions
+- In-app shop: buy decorative flowers for your chicken's room using earned points
+- Six flower color variants (pink, red, blue, purple, orange, white) assigned per slot
+- Per-user purchase limits and sold-out tracking
+- AI-powered question generation: generate Spanish→German vocabulary pairs via OpenAI (admin only)
+- Admin tools: reset decorations with currency refund, clean deleted question stats
+- Shop admin overview with per-user ownership matrix
+- Cache-busting asset versioning for reliable deployments
 
 ## 🔧 Quick start
 
