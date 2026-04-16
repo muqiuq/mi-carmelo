@@ -6,15 +6,16 @@ TARGET_DIR="/var/www/html/functions/mi-carmelo"
 
 echo "Deploying to ${TARGET_HOST}:${TARGET_DIR} ..."
 
-ssh "$TARGET_HOST" "mkdir -p ${TARGET_DIR}/data ${TARGET_DIR}/audio"
+# ssh "$TARGET_HOST" "mkdir -p ${TARGET_DIR}/data ${TARGET_DIR}/audio"
 
-rsync -avz --delete --omit-dir-times \
+rsync -rltz --delete --omit-dir-times --no-perms \
     --include='index.php' \
     --include='sw.js' \
     --include='api/***' \
     --include='css/***' \
     --include='js/***' \
     --include='vendor/***' \
+    --include='favicon.svg' \
     --include='data/' \
     --include='data/.htaccess' \
     --exclude='*' \
