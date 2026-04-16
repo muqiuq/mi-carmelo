@@ -71,8 +71,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode([
             'success' => true,
             'tokens' => $tokens,
-            'require_access_token' => !empty($game_config['require_access_token']),
+            'require_access_token' => get_app_state($pdo, 'require_access_token', '0') === '1',
             'base_url' => rtrim($game_config['base_url'] ?? 'http://localhost:8080', '/')
+        ]);
+    } elseif ($action === 'get_fiesta_settings') {
+        echo json_encode([
+            'success' => true,
+            'fiesta_mode' => get_app_state($pdo, 'fiesta_mode', 'normal')
         ]);
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -252,17 +257,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt->execute([$token_id]);
         echo json_encode(['success' => true]);
     } elseif ($action === 'toggle_require_token') {
-        $game_config = require __DIR__ . '/../data/game_config.php';
-        $current = !empty($game_config['require_access_token']);
+        $current = get_app_state($pdo, 'require_access_token', '0') === '1';
         $new_val = !$current;
-        $config_file = __DIR__ . '/../data/game_config.php';
-        $content = file_get_contents($config_file);
-        $content = preg_replace(
-            "/'require_access_token'\s*=>\s*(true|false)/",
-            "'require_access_token' => " . ($new_val ? 'true' : 'false'),
-            $content
-        );
-        file_put_contents($config_file, $content);
+        set_app_state($pdo, 'require_access_token', $new_val ? '1' : '0');
         echo json_encode(['success' => true, 'require_access_token' => $new_val]);
+
+    } elseif ($action === 'reset_fiesta') {
+        $user_id = (int)($data['user_id'] ?? 0);
+        if ($user_id <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Invalid user ID']);
+            exit;
+        }
+        $stmt = $pdo->prepare("UPDATE users SET last_fiesta = NULL WHERE id = ?");
+        $stmt->execute([$user_id]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'toggle_fiesta') {
+        $current = get_app_state($pdo, 'fiesta_mode', 'normal');
+        $cycle = ['normal' => 'always', 'always' => 'disabled', 'disabled' => 'normal'];
+        $new_val = $cycle[$current] ?? 'normal';
+        set_app_state($pdo, 'fiesta_mode', $new_val);
+        echo json_encode(['success' => true, 'fiesta_mode' => $new_val]);
     }
 }

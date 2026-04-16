@@ -165,6 +165,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
 
             $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, 'flower_wall', ?)");
             $insDecor->execute([$_SESSION['user_id'], $freeSlot]);
+        } elseif ($item['code'] === 'small_lamp') {
+            // Lamps use fixed slots: 0 = wall-left, 1 = wall-right, 2 = floor lamp.
+            $slotsStmt = $pdo->prepare("SELECT slot_index FROM user_decorations WHERE user_id = ? AND item_code = 'small_lamp' ORDER BY slot_index ASC");
+            $slotsStmt->execute([$_SESSION['user_id']]);
+            $used = [];
+            foreach ($slotsStmt->fetchAll() as $r) {
+                $used[(int)$r['slot_index']] = true;
+            }
+
+            $freeSlot = null;
+            for ($i = 0; $i < 3; $i++) {
+                if (!isset($used[$i])) {
+                    $freeSlot = $i;
+                    break;
+                }
+            }
+
+            if ($freeSlot === null) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'error' => 'Keine freien Lampen-Plätze']);
+                exit;
+            }
+
+            $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, 'small_lamp', ?)");
+            $insDecor->execute([$_SESSION['user_id'], $freeSlot]);
         } else {
             $nextSlotStmt = $pdo->prepare("SELECT COALESCE(MAX(slot_index), -1) + 1 FROM user_decorations WHERE user_id = ? AND item_code = ?");
             $nextSlotStmt->execute([$_SESSION['user_id'], $item['code']]);

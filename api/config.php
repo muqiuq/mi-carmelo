@@ -1,4 +1,7 @@
 <?php
+$sevenDays = 7 * 24 * 60 * 60;
+ini_set('session.gc_maxlifetime', $sevenDays);
+session_set_cookie_params($sevenDays);
 session_start();
 
 // Base configuration and SQLite initialization
@@ -90,7 +93,7 @@ try {
         // Seed default shop items
         $shopSeed = $pdo->prepare("INSERT OR IGNORE INTO shop_items (code, name, description, currency, price, max_quantity, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $shopSeed->execute(['flower_wall', 'Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 10, 10]);
-        $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 5, 20]);
+        $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
         $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein einfacher Bilderrahmen als Dekoration.', 'diamonds', 7, 3, 30]);
         $shopSeed->execute(['chicken_house', 'Haus', 'Ein kleines Premium-Haus für dein Huhn.', 'stars', 10, 1, 40]);
     }
@@ -121,6 +124,13 @@ try {
 // Migration: add is_dead column if missing
 try {
     $pdo->exec("ALTER TABLE users ADD COLUMN is_dead INTEGER DEFAULT 0");
+} catch (PDOException $e) {
+    // Column already exists
+}
+
+// Migration: add last_fiesta column
+try {
+    $pdo->exec("ALTER TABLE users ADD COLUMN last_fiesta DATETIME DEFAULT NULL");
 } catch (PDOException $e) {
     // Column already exists
 }
@@ -170,7 +180,7 @@ try {
 
     $shopSeed = $pdo->prepare("INSERT OR IGNORE INTO shop_items (code, name, description, currency, price, max_quantity, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $shopSeed->execute(['flower_wall', 'Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 10, 10]);
-    $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 5, 20]);
+    $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
     $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein einfacher Bilderrahmen als Dekoration.', 'diamonds', 7, 3, 30]);
     $shopSeed->execute(['chicken_house', 'Haus', 'Ein kleines Premium-Haus für dein Huhn.', 'stars', 10, 1, 40]);
 
@@ -178,8 +188,55 @@ try {
     $shopUpdate = $pdo->prepare("UPDATE shop_items SET name = ?, description = ?, currency = ?, price = ? WHERE code = ?");
     $shopUpdate->execute(['Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 'flower_wall']);
     $shopUpdate->execute(['Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 'small_lamp']);
+
+    // Enforce latest max_quantity values
+    $mqUpdate = $pdo->prepare("UPDATE shop_items SET max_quantity = ? WHERE code = ?");
+    $mqUpdate->execute([3, 'small_lamp']);
     $shopUpdate->execute(['Bilderrahmen', 'Ein einfacher Bilderrahmen als Dekoration.', 'diamonds', 7, 'picture_frame']);
     $shopUpdate->execute(['Haus', 'Ein kleines Premium-Haus für dein Huhn.', 'stars', 10, 'chicken_house']);
 } catch (PDOException $e) {
     // Ignore migration errors to keep startup resilient
+}
+
+// Migration: app_state key-value table for runtime state
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS app_state (
+            key TEXT PRIMARY KEY NOT NULL,
+            value TEXT NOT NULL
+        )
+    ");
+    // Migrate fiesta_mode from game_config.php to DB if not yet present
+    $exists = $pdo->query("SELECT COUNT(*) FROM app_state WHERE key = 'fiesta_mode'")->fetchColumn();
+    if (!$exists) {
+        $gc = require __DIR__ . '/../data/game_config.php';
+        $fm = $gc['fiesta_mode'] ?? 'normal';
+        $pdo->prepare("INSERT OR IGNORE INTO app_state (key, value) VALUES (?, ?)")->execute(['fiesta_mode', $fm]);
+    }
+    $exists = $pdo->query("SELECT COUNT(*) FROM app_state WHERE key = 'require_access_token'")->fetchColumn();
+    if (!$exists) {
+        $gc = $gc ?? require __DIR__ . '/../data/game_config.php';
+        $rat = !empty($gc['require_access_token']) ? '1' : '0';
+        $pdo->prepare("INSERT OR IGNORE INTO app_state (key, value) VALUES (?, ?)")->execute(['require_access_token', $rat]);
+    }
+} catch (PDOException $e) {
+    // Ignore
+}
+
+/**
+ * Get a value from the app_state table.
+ */
+function get_app_state(PDO $pdo, string $key, string $default = ''): string {
+    $stmt = $pdo->prepare("SELECT value FROM app_state WHERE key = ?");
+    $stmt->execute([$key]);
+    $row = $stmt->fetch();
+    return $row ? $row['value'] : $default;
+}
+
+/**
+ * Set a value in the app_state table.
+ */
+function set_app_state(PDO $pdo, string $key, string $value): void {
+    $stmt = $pdo->prepare("INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+    $stmt->execute([$key, $value]);
 }

@@ -16,6 +16,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     $type = $_GET['type'] ?? 'pet'; // 'pet', 'feed', or 'revive'
     
     $limit = 1;
+    if ($type === 'fiesta') {
+        // Check cooldown (configurable, default 5 minutes)
+        $game_config = require __DIR__ . '/../data/game_config.php';
+        $fiestaCooldown = $game_config['fiesta_cooldown_seconds'] ?? 300;
+        $cdStmt = $pdo->prepare("SELECT last_fiesta FROM users WHERE id = ?");
+        $cdStmt->execute([$_SESSION['user_id']]);
+        $lastFiesta = $cdStmt->fetchColumn();
+        if ($lastFiesta) {
+            $elapsed = time() - strtotime($lastFiesta . ' UTC');
+            if ($elapsed < $fiestaCooldown) {
+                echo json_encode(['success' => false, 'error' => 'Fiesta cooldown active', 'cooldown_remaining' => $fiestaCooldown - $elapsed]);
+                exit;
+            }
+        }
+    }
     if ($type === 'feed' || $type === 'revive') {
         // Fetch user's configured limit
         $stmt = $pdo->prepare("SELECT questions_per_challenge FROM users WHERE id = ?");
@@ -62,6 +77,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         while (count($selected_questions) < $limit && !empty($remaining_pool)) {
             $selected_questions[] = array_pop($remaining_pool);
         }
+    } else if ($type === 'pet') {
+        // Pet: only unknown questions
+        $pool = $unknown_pool;
+        shuffle($pool);
+        $selected_questions = array_slice($pool, 0, $limit);
+    } else if ($type === 'fiesta') {
+        // Fiesta: 1 MC question from all questions
+        shuffle($all_questions);
+        $mc_question = $all_questions[0];
+        $correct_answer = $mc_question['answers'][0];
+        $wrong_pool = [];
+        foreach ($all_questions as $q) {
+            if ($q['id'] === $mc_question['id']) continue;
+            foreach ($q['answers'] as $a) {
+                $a_lower = mb_strtolower(trim($a));
+                if ($a_lower !== mb_strtolower(trim($correct_answer)) && !in_array($a_lower, array_map('mb_strtolower', $wrong_pool))) {
+                    $wrong_pool[] = $a;
+                }
+            }
+        }
+        shuffle($wrong_pool);
+        $wrong_options = array_slice($wrong_pool, 0, 3);
+        if (count($wrong_options) >= 3) {
+            $options = array_merge([$correct_answer], $wrong_options);
+            shuffle($options);
+            $mc_question['options'] = $options;
+        }
+        $selected_questions = [$mc_question];
     } else {
         // Just random
         $pool = $all_questions;
@@ -70,6 +113,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     }
     
     shuffle($selected_questions);
+
+    // For feed/revive with more than 1 question, add a multiple-choice question at the end
+    if (($type === 'feed' || $type === 'revive') && count($selected_questions) > 1) {
+        // Pick one more question for MC (not already selected)
+        $selected_ids = array_map(fn($q) => $q['id'], $selected_questions);
+        $mc_pool = array_filter($all_questions, fn($q) => !in_array($q['id'], $selected_ids));
+        if (empty($mc_pool)) {
+            // Fallback: reuse any question
+            $mc_pool = $all_questions;
+        }
+        $mc_pool = array_values($mc_pool);
+        shuffle($mc_pool);
+        $mc_question = $mc_pool[0];
+
+        // Build 4 options: 1 correct + 3 wrong from other questions
+        $correct_answer = $mc_question['answers'][0]; // use first answer as the displayed correct option
+        $wrong_pool = [];
+        foreach ($all_questions as $q) {
+            if ($q['id'] === $mc_question['id']) continue;
+            foreach ($q['answers'] as $a) {
+                $a_lower = mb_strtolower(trim($a));
+                if ($a_lower !== mb_strtolower(trim($correct_answer)) && !in_array($a_lower, array_map('mb_strtolower', $wrong_pool))) {
+                    $wrong_pool[] = $a;
+                }
+            }
+        }
+        shuffle($wrong_pool);
+        $wrong_options = array_slice($wrong_pool, 0, 3);
+
+        // Only add MC if we have enough wrong options
+        if (count($wrong_options) >= 3) {
+            $options = array_merge([$correct_answer], $wrong_options);
+            shuffle($options);
+            $mc_question['options'] = $options;
+            $selected_questions[] = $mc_question;
+        }
+    }
 
     echo json_encode([
         'success' => true,
@@ -154,6 +234,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     } elseif ($type === 'revive') {
         $upd = $pdo->prepare("UPDATE users SET total_points = ?, diamonds = ?, stars = ?, correct_streak_count = ?, is_dead = 0, last_fed = NULL WHERE id = ?");
         $upd->execute([$new_points, $diamonds, $stars, $streak, $_SESSION['user_id']]);
+    } elseif ($type === 'fiesta') {
+        // Fiesta: award exactly 1 point, update last_fiesta
+        $new_points = (int)$user['total_points'] + 1;
+        $upd = $pdo->prepare("UPDATE users SET total_points = ?, last_fiesta = CURRENT_TIMESTAMP WHERE id = ?");
+        $upd->execute([$new_points, $_SESSION['user_id']]);
     } else {
         $upd = $pdo->prepare("UPDATE users SET total_points = ?, diamonds = ?, stars = ?, correct_streak_count = ? WHERE id = ?");
         $upd->execute([$new_points, $diamonds, $stars, $streak, $_SESSION['user_id']]);
@@ -195,6 +280,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         $flower_slots[] = (int)$row['slot_index'];
     }
     $response_stats['flower_slots'] = $flower_slots;
+
+    // Fiesta cooldown for response
+    $fiestaCd = $game_config['fiesta_cooldown_seconds'] ?? 300;
+    if ($type === 'fiesta') {
+        $response_stats['fiesta_cooldown'] = $fiestaCd;
+    } else {
+        $response_stats['fiesta_cooldown'] = 0;
+    }
 
     echo json_encode([
         'success' => true,

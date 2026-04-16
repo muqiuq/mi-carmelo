@@ -154,6 +154,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(stats.flower_slots)) {
             renderFlowers(stats.flower_slots);
         }
+        if (Array.isArray(stats.lamp_slots)) {
+            renderLamps(stats.lamp_slots);
+        }
+        if (stats.fiesta_cooldown > 0) {
+            startFiestaCooldown(stats.fiesta_cooldown);
+        }
+        fiestaDisabled = stats.fiesta_mode || 'normal';
 
         const deadOverlay = document.getElementById('dead-overlay');
         const gameButtons = document.getElementById('game-buttons');
@@ -195,6 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 startCountdown(stats.next_feed_ts);
             }
         }
+
+        checkFiestaTime();
     }
 
     // Revive handler — must complete a challenge first
@@ -297,6 +306,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderLamps(slots) {
+        const decorEl = document.getElementById('pet-decor');
+        if (!decorEl) return;
+
+        // Remove existing lamps (keep flowers)
+        decorEl.querySelectorAll('.wall-lamp, .floor-lamp').forEach(el => el.remove());
+
+        // Slot 0 = wall-left, Slot 1 = wall-right, Slot 2 = floor lamp
+        const lampSpots = [
+            { cls: 'wall-lamp', left: '3%', top: '28%' },
+            { cls: 'wall-lamp', left: '90%', top: '28%' },
+            { cls: 'floor-lamp', left: '92%', bottom: '8%' }
+        ];
+
+        slots.forEach(slot => {
+            const idx = parseInt(slot, 10);
+            if (Number.isNaN(idx) || idx < 0 || idx >= lampSpots.length) return;
+            const lamp = document.createElement('div');
+            lamp.className = lampSpots[idx].cls;
+            lamp.style.left = lampSpots[idx].left;
+            if (lampSpots[idx].top) lamp.style.top = lampSpots[idx].top;
+            if (lampSpots[idx].bottom) lamp.style.bottom = lampSpots[idx].bottom;
+            decorEl.appendChild(lamp);
+        });
+    }
+
     async function loadShop() {
         const listEl = document.getElementById('shop-list');
         const balanceEl = document.getElementById('shop-balance');
@@ -323,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'col-12 col-md-6';
                 const lockedClass = item.can_afford ? '' : ' shop-item-locked';
-                const isImplemented = item.code === 'flower_wall';
+                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp';
                 const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
 
                 card.innerHTML = `
@@ -398,6 +433,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadTokens();
             } else if (sectionId === 'admin-section-shop') {
                 loadShopAdmin();
+            } else if (sectionId === 'admin-section-fiesta') {
+                initFiestaAdmin();
             } else if (sectionId === 'admin-section-ai') {
                 initAiSection();
             }
@@ -487,6 +524,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (d.success) {
             msg.textContent = 'Feed timer reset!';
             msg.className = 'small mb-3 text-success';
+        } else {
+            msg.textContent = d.error || 'Failed';
+            msg.className = 'small mb-3 text-danger';
+        }
+        btn.disabled = false;
+    });
+
+    document.getElementById('btn-detail-reset-fiesta').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-detail-reset-fiesta');
+        btn.disabled = true;
+        const res = await fetch('api/admin.php?action=reset_fiesta', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: currentDetailUserId})
+        });
+        const d = await res.json();
+        const msg = document.getElementById('user-detail-msg');
+        if (d.success) {
+            msg.textContent = 'Fiesta cooldown reset!';
+            msg.className = 'small mb-3 text-success';
+            if (currentUser && currentDetailUserId == currentUser.id) {
+                if (fiestaTimer) { clearInterval(fiestaTimer); fiestaTimer = null; }
+                btnFiesta.disabled = false;
+                fiestaCountdown.classList.add('d-none');
+                checkFiestaTime();
+            }
         } else {
             msg.textContent = d.error || 'Failed';
             msg.className = 'small mb-3 text-danger';
@@ -823,6 +886,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- AI QUESTION GENERATOR ---
     let aiLastTopic = '';
+
+    // --- FIESTA ADMIN ---
+    async function initFiestaAdmin() {
+        try {
+            const res = await fetch('api/admin.php?action=get_fiesta_settings');
+            const data = await res.json();
+            if (!data.success) return;
+            const toggleBtn = document.getElementById('btn-toggle-fiesta');
+            updateFiestaToggle(toggleBtn, data.fiesta_mode);
+        } catch (e) { console.error(e); }
+    }
+
+    function updateFiestaToggle(btn, mode) {
+        const styles = {
+            normal: ['🕘 Normal (21–01)', 'btn btn-sm btn-outline-secondary'],
+            always: ['✅ Always On', 'btn btn-sm btn-outline-success'],
+            disabled: ['❌ Disabled', 'btn btn-sm btn-outline-danger']
+        };
+        const s = styles[mode] || styles.normal;
+        btn.textContent = s[0];
+        btn.className = s[1];
+    }
+
+    document.getElementById('btn-toggle-fiesta').addEventListener('click', async () => {
+        const msg = document.getElementById('fiesta-toggle-msg');
+        try {
+            const res = await fetch('api/admin.php?action=toggle_fiesta', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (data.success) {
+                updateFiestaToggle(document.getElementById('btn-toggle-fiesta'), data.fiesta_mode);
+                fiestaDisabled = data.fiesta_mode;
+                checkFiestaTime();
+                msg.textContent = data.fiesta_mode === 'always' ? 'Always on' : data.fiesta_mode === 'disabled' ? 'Disabled' : 'Normal (21–01)';
+                msg.className = 'small mt-1 text-success';
+            }
+        } catch (e) { msg.textContent = 'Failed'; msg.className = 'small mt-1 text-danger'; }
+    });
 
     async function initAiSection() {
         const noKey = document.getElementById('ai-no-key');
@@ -1239,6 +1341,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function spawnConfetti() {
+        const area = document.getElementById('pet-area');
+        const confetti = ['🎊', '🎉', '✨', '⭐', '🌟', '💫', '🟡', '🔴', '🔵', '🟢', '🟣', '🟠'];
+        const duration = 20000;
+        const interval = 150;
+        let elapsed = 0;
+        const timer = setInterval(() => {
+            elapsed += interval;
+            if (elapsed > duration) { clearInterval(timer); return; }
+            for (let i = 0; i < 2; i++) {
+                const el = document.createElement('span');
+                el.className = 'confetti-particle';
+                el.textContent = confetti[Math.floor(Math.random() * confetti.length)];
+                el.style.left = (Math.random() * 96 + 2) + '%';
+                el.style.setProperty('--cx', (Math.random() * 80 - 40) + 'px');
+                el.style.setProperty('--cr', (Math.random() * 720 - 360) + 'deg');
+                el.style.fontSize = (0.7 + Math.random() * 1.0) + 'rem';
+                el.style.animationDuration = (1.8 + Math.random() * 1.4) + 's';
+                area.appendChild(el);
+                el.addEventListener('animationend', () => el.remove());
+            }
+        }, interval);
+    }
+
     // --- CHALLENGE ENGINE (Step 6) ---
     async function startChallenge(type) {
         challengeType = type;
@@ -1272,9 +1398,69 @@ document.addEventListener('DOMContentLoaded', () => {
         inputChallengeAnswer.disabled = false;
         btnChallengeSubmit.classList.remove('d-none');
         
+        const textInput = document.getElementById('challenge-text-input');
+        const mcOptions = document.getElementById('challenge-mc-options');
+
+        if (q.options && q.options.length > 0) {
+            // Multiple choice mode
+            textInput.classList.add('d-none');
+            inputChallengeAnswer.removeAttribute('required');
+            btnChallengeSubmit.classList.add('d-none');
+            mcOptions.classList.remove('d-none');
+            mcOptions.innerHTML = '';
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-primary btn-lg';
+                btn.textContent = opt;
+                btn.addEventListener('click', () => handleMcSelection(opt, mcOptions));
+                mcOptions.appendChild(btn);
+            });
+        } else {
+            // Normal text input mode
+            textInput.classList.remove('d-none');
+            inputChallengeAnswer.setAttribute('required', '');
+            mcOptions.classList.add('d-none');
+            mcOptions.innerHTML = '';
+        }
+        
         hideFeedback();
         
-        setTimeout(() => inputChallengeAnswer.focus(), 100);
+        if (!q.options) {
+            setTimeout(() => inputChallengeAnswer.focus(), 100);
+        }
+    }
+
+    function handleMcSelection(selected, mcOptions) {
+        const q = currentChallenge[currentQuestionIndex];
+        currentQuestionAttempts++;
+
+        // Disable all MC buttons
+        mcOptions.querySelectorAll('button').forEach(btn => {
+            btn.disabled = true;
+            const isCorrect = q.answers.some(a => a.trim().toLowerCase() === btn.textContent.trim().toLowerCase());
+            if (isCorrect) {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-success');
+            } else if (btn.textContent === selected) {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-danger');
+            }
+        });
+
+        const isCorrect = q.answers.some(a => a.trim().toLowerCase() === selected.trim().toLowerCase());
+
+        if (isCorrect) {
+            challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
+            showFeedback('success', "Correct! 🎉");
+            btnChallengeNext.classList.remove('d-none');
+            btnChallengeNext.focus();
+        } else {
+            const correctAnswers = q.answers.join(" OR ");
+            showFeedback('danger', "Incorrect 😔", `The correct answer was: ${correctAnswers}`);
+            btnChallengeRepeat.classList.remove('d-none');
+            btnChallengeRepeat.focus();
+        }
     }
     
     function hideFeedback() {
@@ -1335,12 +1521,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     btnChallengeRepeat.addEventListener('click', () => {
-        // Just reload the same question but reset UI (keep attempts count as is)
-        inputChallengeAnswer.value = '';
-        inputChallengeAnswer.disabled = false;
-        btnChallengeSubmit.classList.remove('d-none');
+        const q = currentChallenge[currentQuestionIndex];
+        if (q.options && q.options.length > 0) {
+            // Re-shuffle and re-render MC options
+            const mcOptions = document.getElementById('challenge-mc-options');
+            mcOptions.innerHTML = '';
+            const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+            shuffled.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-primary btn-lg';
+                btn.textContent = opt;
+                btn.addEventListener('click', () => handleMcSelection(opt, mcOptions));
+                mcOptions.appendChild(btn);
+            });
+        } else {
+            inputChallengeAnswer.value = '';
+            inputChallengeAnswer.disabled = false;
+            btnChallengeSubmit.classList.remove('d-none');
+            inputChallengeAnswer.focus();
+        }
         hideFeedback();
-        inputChallengeAnswer.focus();
     });
 
     btnChallengeClose.addEventListener('click', () => {
@@ -1368,6 +1569,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     triggerAnimation('anim-star', 3125);
                 } else if (challengeType === 'revive') {
                     triggerAnimation('anim-pet', 4500);
+                } else if (challengeType === 'fiesta') {
+                    startFiestaCooldown(data.stats.fiesta_cooldown || 300);
+                    spawnConfetti();
                 } else if (challengeType === 'pet') {
                     triggerAnimation('anim-pet', 4500);
                 } else {
@@ -1388,6 +1592,62 @@ document.addEventListener('DOMContentLoaded', () => {
     btnFeed.addEventListener('click', () => {
         if (btnFeed.disabled) return;
         startChallenge('feed');
+    });
+
+    // --- FIESTA ---
+    const btnFiesta = document.getElementById('btn-fiesta');
+    const fiestaCountdown = document.getElementById('fiesta-countdown');
+    let fiestaTimer = null;
+    let fiestaDisabled = 'normal';
+
+    function checkFiestaTime() {
+        const isHungry = !speechBubble.classList.contains('d-none');
+        if (fiestaDisabled === 'disabled' || isHungry) {
+            btnFiesta.classList.add('d-none');
+            fiestaCountdown.classList.add('d-none');
+            if (fiestaTimer) { clearInterval(fiestaTimer); fiestaTimer = null; }
+            btnFiesta.disabled = false;
+            return;
+        }
+        if (fiestaDisabled === 'always') {
+            btnFiesta.classList.remove('d-none');
+            return;
+        }
+        const h = new Date().getHours();
+        const visible = (h >= 21 || h < 1);
+        btnFiesta.classList.toggle('d-none', !visible);
+        if (!visible) fiestaCountdown.classList.add('d-none');
+    }
+
+    function startFiestaCooldown(seconds) {
+        btnFiesta.disabled = true;
+        if (fiestaTimer) clearInterval(fiestaTimer);
+        let remaining = seconds;
+        const tick = () => {
+            if (remaining <= 0) {
+                clearInterval(fiestaTimer);
+                fiestaTimer = null;
+                btnFiesta.disabled = false;
+                fiestaCountdown.classList.add('d-none');
+                checkFiestaTime();
+                return;
+            }
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            fiestaCountdown.textContent = `Fiesta in ${m}:${String(s).padStart(2, '0')}`;
+            fiestaCountdown.classList.remove('d-none');
+            remaining--;
+        };
+        tick();
+        fiestaTimer = setInterval(tick, 1000);
+    }
+
+    checkFiestaTime();
+    setInterval(checkFiestaTime, 60000);
+
+    btnFiesta.addEventListener('click', () => {
+        if (btnFiesta.disabled) return;
+        startChallenge('fiesta');
     });
 
     // --- PUSH NOTIFICATIONS ---

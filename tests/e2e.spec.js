@@ -391,25 +391,63 @@ test.describe('Mi Carmelo Core Game Loop', () => {
     let safetyCounter = 0;
     while (safetyCounter < 10) {
       safetyCounter++;
-      // Submit a wrong answer to reveal the correct one
-      await page.fill('#challenge-answer', 'wrong_answer_intentional');
-      await page.click('#btn-challenge-submit');
-      await expect(page.locator('#challenge-feedback-title')).toBeVisible();
 
-      // Read the correct answer from feedback
-      const feedbackText = await page.locator('#challenge-feedback-text').innerText();
-      const match = feedbackText.match(/:\s*(.+)/);
-      const answer = match ? match[1].split(' OR ')[0].trim() : '';
+      // Check if this is a multiple choice question
+      const isMC = await page.locator('#challenge-mc-options').evaluate(el => !el.classList.contains('d-none'));
 
-      // Repeat and submit correct answer
-      await page.click('#btn-challenge-repeat');
-      await expect(page.locator('#challenge-answer')).toBeEnabled();
-      await page.fill('#challenge-answer', answer);
-      await page.click('#btn-challenge-submit');
+      if (isMC) {
+        // MC: click the first (wrong) option to reveal the correct one
+        const firstBtn = page.locator('#challenge-mc-options button').first();
+        await firstBtn.click();
+        await expect(page.locator('#challenge-feedback-title')).toBeVisible();
 
-      // Click Next to proceed
-      await expect(page.locator('#btn-challenge-next')).toBeVisible({ timeout: 5000 });
-      await page.click('#btn-challenge-next');
+        // Check if we got it right by luck
+        const feedbackTitle = await page.locator('#challenge-feedback-title').innerText();
+        if (feedbackTitle.includes('Correct')) {
+          await expect(page.locator('#btn-challenge-next')).toBeVisible({ timeout: 5000 });
+          await page.click('#btn-challenge-next');
+        } else {
+          // Retry: click the green (correct) button
+          await page.click('#btn-challenge-repeat');
+          const correctBtn = page.locator('#challenge-mc-options button.btn-success').first();
+          // Buttons got reshuffled, so just click each until correct
+          const mcBtns = page.locator('#challenge-mc-options button');
+          const count = await mcBtns.count();
+          for (let i = 0; i < count; i++) {
+            const btnText = await mcBtns.nth(i).innerText();
+            // Read the correct answer from feedback we saw earlier
+            const feedbackText = await page.locator('#challenge-feedback-text').innerText();
+            const match = feedbackText.match(/:\s*(.+)/);
+            const correctAnswer = match ? match[1].split(' OR ')[0].trim() : '';
+            if (btnText.trim() === correctAnswer) {
+              await mcBtns.nth(i).click();
+              break;
+            }
+          }
+          await expect(page.locator('#btn-challenge-next')).toBeVisible({ timeout: 5000 });
+          await page.click('#btn-challenge-next');
+        }
+      } else {
+        // Text input: Submit a wrong answer to reveal the correct one
+        await page.fill('#challenge-answer', 'wrong_answer_intentional');
+        await page.click('#btn-challenge-submit');
+        await expect(page.locator('#challenge-feedback-title')).toBeVisible();
+
+        // Read the correct answer from feedback
+        const feedbackText = await page.locator('#challenge-feedback-text').innerText();
+        const match = feedbackText.match(/:\s*(.+)/);
+        const answer = match ? match[1].split(' OR ')[0].trim() : '';
+
+        // Repeat and submit correct answer
+        await page.click('#btn-challenge-repeat');
+        await expect(page.locator('#challenge-answer')).toBeEnabled();
+        await page.fill('#challenge-answer', answer);
+        await page.click('#btn-challenge-submit');
+
+        // Click Next to proceed
+        await expect(page.locator('#btn-challenge-next')).toBeVisible({ timeout: 5000 });
+        await page.click('#btn-challenge-next');
+      }
 
       // Check if challenge is done (overlay hidden) or next question loaded
       const isHidden = await page.locator('#challenge-overlay').evaluate(el => el.classList.contains('d-none'));

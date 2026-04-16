@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'settings' => $user]);
     } elseif ($action === 'get_stats') {
         $game_config = require __DIR__ . '/../data/game_config.php';
-        $stmt = $pdo->prepare("SELECT total_points, diamonds, stars, correct_streak_count, last_fed, is_dead FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT total_points, diamonds, stars, correct_streak_count, last_fed, is_dead, last_fiesta FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $stats = $stmt->fetch();
 
@@ -103,6 +103,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flower_slots[] = (int)$row['slot_index'];
         }
         $stats['flower_slots'] = $flower_slots;
+
+        $lampStmt = $pdo->prepare("SELECT slot_index FROM user_decorations WHERE user_id = ? AND item_code = 'small_lamp' ORDER BY slot_index ASC");
+        $lampStmt->execute([$_SESSION['user_id']]);
+        $lamp_slots = [];
+        foreach ($lampStmt->fetchAll() as $row) {
+            $lamp_slots[] = (int)$row['slot_index'];
+        }
+        $stats['lamp_slots'] = $lamp_slots;
+
+        // Fiesta cooldown
+        $fiestaCd = $game_config['fiesta_cooldown_seconds'] ?? 300;
+        if (!empty($stats['last_fiesta'])) {
+            $fiestaTime = strtotime($stats['last_fiesta'] . ' UTC');
+            $elapsed = time() - $fiestaTime;
+            $stats['fiesta_cooldown'] = max(0, $fiestaCd - $elapsed);
+        } else {
+            $stats['fiesta_cooldown'] = 0;
+        }
+        $stats['fiesta_mode'] = get_app_state($pdo, 'fiesta_mode', 'normal');
+        unset($stats['last_fiesta']);
 
         unset($stats['last_fed']);
         

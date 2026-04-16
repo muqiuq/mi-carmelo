@@ -1,27 +1,37 @@
 <?php
-// Access token gate
-$game_config = require __DIR__ . '/data/game_config.php';
-if (!empty($game_config['require_access_token'])) {
-    $data_dir = __DIR__ . '/data';
-    $db_file = $data_dir . '/micarmelo.sqlite';
-    $pdo = new PDO("sqlite:$db_file");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 
-    // If no tokens exist at all, skip the gate
-    $count = (int)$pdo->query("SELECT COUNT(*) FROM access_tokens WHERE expires_at > datetime('now')")->fetchColumn();
-    if ($count > 0) {
-        $token = $_GET['t'] ?? '';
-        if ($token === '') {
-            http_response_code(404);
-            exit;
-        }
-        $stmt = $pdo->prepare("SELECT id FROM access_tokens WHERE token = ? AND expires_at > datetime('now')");
-        $stmt->execute([$token]);
-        if (!$stmt->fetch()) {
-            http_response_code(403);
-            exit;
+// Access token gate
+$data_dir = __DIR__ . '/data';
+$db_file = $data_dir . '/micarmelo.sqlite';
+if (file_exists($db_file)) {
+    $gate_pdo = new PDO("sqlite:$db_file");
+    $gate_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $gate_pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $require_token = false;
+    try {
+        $row = $gate_pdo->query("SELECT value FROM app_state WHERE key = 'require_access_token'")->fetch();
+        $require_token = $row && $row['value'] === '1';
+    } catch (PDOException $e) { /* table may not exist yet */ }
+    if ($require_token) {
+        $count = (int)$gate_pdo->query("SELECT COUNT(*) FROM access_tokens WHERE expires_at > datetime('now')")->fetchColumn();
+        if ($count > 0) {
+            $token = $_GET['t'] ?? '';
+            if ($token === '') {
+                http_response_code(404);
+                exit;
+            }
+            $stmt = $gate_pdo->prepare("SELECT id FROM access_tokens WHERE token = ? AND expires_at > datetime('now')");
+            $stmt->execute([$token]);
+            if (!$stmt->fetch()) {
+                http_response_code(403);
+                exit;
+            }
         }
     }
+    unset($gate_pdo);
 }
 ?>
 <!DOCTYPE html>
@@ -135,8 +145,10 @@ if (!empty($game_config['require_access_token'])) {
                 <div class="mt-4" id="game-buttons">
                     <button id="btn-pet" class="btn btn-info btn-lg m-2">Acariciar</button>
                     <button id="btn-feed" class="btn btn-warning btn-lg m-2">Alimentar</button>
+                    <button id="btn-fiesta" class="btn btn-danger btn-lg m-2 d-none">🎉 Fiesta</button>
                     <button id="btn-shop" class="btn btn-outline-primary btn-lg m-2">Shop</button>
                     <div id="feed-countdown" class="text-muted small mt-1 d-none"></div>
+                    <div id="fiesta-countdown" class="text-muted small mt-1 d-none"></div>
                 </div>
 
                 <!-- DEAD OVERLAY -->
@@ -154,6 +166,7 @@ if (!empty($game_config['require_access_token'])) {
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>
+                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.2</div>
             </main>
 
             <!-- CHALLENGE OVERLAY -->
@@ -169,9 +182,10 @@ if (!empty($game_config['require_access_token'])) {
                             <h3 id="challenge-question" class="mb-4 text-center">...</h3>
                             
                             <form id="form-challenge">
-                                <div class="mb-3">
-                                    <input type="text" id="challenge-answer" class="form-control form-control-lg text-center" placeholder="Your answer" required autocomplete="off">
+                                <div id="challenge-text-input" class="mb-3">
+                                    <input type="text" id="challenge-answer" class="form-control form-control-lg text-center" placeholder="Your answer" autocomplete="off">
                                 </div>
+                                <div id="challenge-mc-options" class="d-grid gap-2 mb-3 d-none"></div>
                                 <button type="submit" id="btn-challenge-submit" class="btn btn-primary btn-lg w-100">Check</button>
                             </form>
 
@@ -199,6 +213,7 @@ if (!empty($game_config['require_access_token'])) {
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-push">🔔 Push Notifications</a>
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-tokens">🔑 Access Tokens</a>
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-shop">🛒 Shop</a>
+                <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-fiesta">🎉 Fiesta</a>
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-ai">🤖 AI Generate Questions</a>
             </div>
 
@@ -273,6 +288,7 @@ if (!empty($game_config['require_access_token'])) {
                         </form>
                         <div class="d-grid gap-2 mb-3">
                             <button id="btn-detail-reset-feed" class="btn btn-warning">🍗 Reset Feed Timer</button>
+                            <button id="btn-detail-reset-fiesta" class="btn btn-warning">🎉 Reset Fiesta Cooldown</button>
                             <button id="btn-detail-test-push" class="btn btn-info">🔔 Send Test Push</button>
                             <button id="btn-detail-clear-subs" class="btn btn-outline-secondary">🧹 Clear Push Subscriptions</button>
                             <button id="btn-detail-clean-stats" class="btn btn-outline-secondary">🧹 Gelöschte Fragen entfernen</button>
@@ -339,6 +355,20 @@ if (!empty($game_config['require_access_token'])) {
                     <div class="card-body">
                         <h5>Shop Overview</h5>
                         <div id="admin-shop-content">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FIESTA SECTION -->
+            <div id="admin-section-fiesta" class="admin-section d-none">
+                <div class="card mx-auto text-start mb-4" style="max-width: 600px;">
+                    <div class="card-body">
+                        <h5>🎉 Fiesta Settings</h5>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span>Party Button</span>
+                            <button id="btn-toggle-fiesta" class="btn btn-sm"></button>
+                        </div>
+                        <div id="fiesta-toggle-msg" class="small mt-1"></div>
                     </div>
                 </div>
             </div>

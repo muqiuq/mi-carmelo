@@ -76,6 +76,75 @@ body {
 .wall-flower.flower-orange::before { background: #e67e22; box-shadow: -8px 0 0 #e67e22, 8px 0 0 #e67e22, 0 -8px 0 #e67e22, 0 8px 0 #e67e22, -6px -6px 0 #f0b27a, 6px -6px 0 #f0b27a, -6px 6px 0 #f0b27a, 6px 6px 0 #f0b27a; }
 .wall-flower.flower-white::before { background: #f0f0f0; box-shadow: -8px 0 0 #f0f0f0, 8px 0 0 #f0f0f0, 0 -8px 0 #f0f0f0, 0 8px 0 #f0f0f0, -6px -6px 0 #fafafa, 6px -6px 0 #fafafa, -6px 6px 0 #fafafa, 6px 6px 0 #fafafa; }
 
+/* ---- Small lamps ---- */
+.wall-lamp {
+    position: absolute;
+    width: 6px;
+    height: 10px;
+    background: #bbb;
+    border-radius: 1px;
+    transform: translate(-50%, 0);
+}
+/* lampshade */
+.wall-lamp::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 10px;
+    background: #f5d98e;
+    border-radius: 2px 2px 6px 6px;
+    box-shadow: 0 0 6px 2px rgba(245, 217, 142, 0.5);
+}
+/* wall mount bracket */
+.wall-lamp::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 10px;
+    height: 3px;
+    background: #999;
+    border-radius: 1px;
+}
+
+.floor-lamp {
+    position: absolute;
+    width: 4px;
+    height: 28px;
+    background: #aaa;
+    border-radius: 1px;
+    transform: translate(-50%, 0);
+}
+/* lampshade */
+.floor-lamp::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px;
+    height: 12px;
+    background: #f5d98e;
+    border-radius: 3px 3px 8px 8px;
+    box-shadow: 0 0 8px 3px rgba(245, 217, 142, 0.45);
+}
+/* base */
+.floor-lamp::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 3px;
+    background: #999;
+    border-radius: 1px;
+}
+
 /* ---- Speech bubble ---- */
 #speech-bubble {
     position: absolute;
@@ -560,4 +629,19 @@ body {
     0%   { opacity: 1; transform: translate(0, 0) scale(0.5) rotate(0deg); }
     30%  { opacity: 1; transform: translate(var(--hx), -30px) scale(1) rotate(var(--hr)); }
     100% { opacity: 0; transform: translate(var(--hx), -80px) scale(0.6) rotate(var(--hr)); }
+}
+
+.confetti-particle {
+    position: absolute;
+    top: 0;
+    pointer-events: none;
+    z-index: 10;
+    animation: confetti-fall 7s linear forwards;
+    opacity: 0;
+}
+
+@keyframes confetti-fall {
+    0%   { opacity: 1; transform: translateY(-20px) translateX(0) rotate(0deg) scale(1); }
+    60%  { opacity: 0.7; transform: translateY(42vh) translateX(var(--cx)) rotate(180deg) scale(0.9); }
+    100% { opacity: 0; transform: translateY(70vh) translateX(var(--cx)) rotate(var(--cr)) scale(0.7); }
 }
