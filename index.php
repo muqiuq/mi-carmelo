@@ -219,6 +219,7 @@ if (file_exists($db_file)) {
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-shop">🛒 Shop</a>
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-fiesta">🎉 Fiesta</a>
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-ai">🤖 AI Generate Questions</a>
+                <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-audio">🔊 Audio Cache</a>
             </div>
 
             <!-- USERS SECTION -->
@@ -401,6 +402,16 @@ if (file_exists($db_file)) {
                                 <div id="ai-add-msg" class="small mt-2"></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-section-audio" class="admin-section d-none">
+                <div class="card mx-auto text-start mb-4" style="max-width: 600px;">
+                    <div class="card-body">
+                        <h5>🔊 Audio Cache</h5>
+                        <div id="audio-list" class="list-group"></div>
+                        <p id="audio-empty" class="text-muted small mt-2 d-none">No cached audio files.</p>
                     </div>
                 </div>
             </div>

@@ -79,6 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'success' => true,
             'fiesta_mode' => get_app_state($pdo, 'fiesta_mode', 'normal')
         ]);
+    } elseif ($action === 'list_audio') {
+        $rows = $pdo->query("SELECT id, text_hash, text, filename, created_at FROM audio_cache ORDER BY created_at DESC")->fetchAll();
+        echo json_encode(['success' => true, 'files' => $rows]);
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $json = file_get_contents('php://input');
@@ -278,5 +281,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $new_val = $cycle[$current] ?? 'normal';
         set_app_state($pdo, 'fiesta_mode', $new_val);
         echo json_encode(['success' => true, 'fiesta_mode' => $new_val]);
+    } elseif ($action === 'delete_audio') {
+        $id = (int)($data['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Invalid ID']);
+            exit;
+        }
+        $stmt = $pdo->prepare("SELECT filename FROM audio_cache WHERE id = ?");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        if ($row) {
+            $file = __DIR__ . '/../audio/' . $row['filename'];
+            if (file_exists($file)) unlink($file);
+            $pdo->prepare("DELETE FROM audio_cache WHERE id = ?")->execute([$id]);
+        }
+        echo json_encode(['success' => true]);
     }
 }

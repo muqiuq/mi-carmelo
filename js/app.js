@@ -438,6 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 initFiestaAdmin();
             } else if (sectionId === 'admin-section-ai') {
                 initAiSection();
+            } else if (sectionId === 'admin-section-audio') {
+                loadAudioAdmin();
             }
         });
     });
@@ -926,6 +928,78 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) { msg.textContent = 'Failed'; msg.className = 'small mt-1 text-danger'; }
     });
+
+    async function loadAudioAdmin() {
+        const list = document.getElementById('audio-list');
+        const empty = document.getElementById('audio-empty');
+        list.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>';
+        empty.classList.add('d-none');
+        try {
+            const res = await fetch('api/admin.php?action=list_audio');
+            const data = await res.json();
+            list.innerHTML = '';
+            if (!data.success || !data.files.length) {
+                empty.classList.remove('d-none');
+                return;
+            }
+            data.files.forEach(f => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                const textSpan = document.createElement('span');
+                textSpan.className = 'text-truncate me-2';
+                textSpan.style.maxWidth = '60%';
+                textSpan.textContent = f.text;
+                textSpan.title = f.text;
+                const btnGroup = document.createElement('div');
+                btnGroup.className = 'd-flex gap-1 flex-shrink-0';
+
+                const playBtn = document.createElement('button');
+                playBtn.className = 'btn btn-sm btn-outline-secondary';
+                playBtn.textContent = '▶️';
+                playBtn.addEventListener('click', async () => {
+                    playBtn.disabled = true;
+                    try {
+                        const r = await fetch('api/tts.php?text=' + encodeURIComponent(f.text));
+                        if (r.ok) {
+                            const blob = await r.blob();
+                            const url = URL.createObjectURL(blob);
+                            const audio = new Audio(url);
+                            audio.play();
+                            audio.addEventListener('ended', () => URL.revokeObjectURL(url));
+                        }
+                    } catch {}
+                    playBtn.disabled = false;
+                });
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'btn btn-sm btn-outline-danger';
+                delBtn.textContent = '🗑️';
+                delBtn.addEventListener('click', async () => {
+                    if (!confirm(`Delete audio for "${f.text}"?`)) return;
+                    delBtn.disabled = true;
+                    try {
+                        const r = await fetch('api/admin.php?action=delete_audio', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({id: f.id})
+                        });
+                        const d = await r.json();
+                        if (d.success) item.remove();
+                        if (!list.children.length) empty.classList.remove('d-none');
+                    } catch {}
+                    delBtn.disabled = false;
+                });
+
+                btnGroup.appendChild(playBtn);
+                btnGroup.appendChild(delBtn);
+                item.appendChild(textSpan);
+                item.appendChild(btnGroup);
+                list.appendChild(item);
+            });
+        } catch {
+            list.innerHTML = '<div class="text-danger small">Failed to load audio files.</div>';
+        }
+    }
 
     async function initAiSection() {
         const noKey = document.getElementById('ai-no-key');
