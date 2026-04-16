@@ -6,7 +6,7 @@ TARGET_DIR="/var/www/html/functions/mi-carmelo"
 
 echo "Deploying to ${TARGET_HOST}:${TARGET_DIR} ..."
 
-ssh "$TARGET_HOST" "mkdir -p ${TARGET_DIR}/data"
+ssh "$TARGET_HOST" "mkdir -p ${TARGET_DIR}/data ${TARGET_DIR}/audio"
 
 rsync -avz --delete --omit-dir-times \
     --include='index.php' \

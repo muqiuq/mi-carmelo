@@ -21,11 +21,16 @@ fi
 # Build the image
 podman build -t $IMAGE_NAME -f Containerfile . >/dev/null 2>&1
 
+# Ensure host directories exist
+mkdir -p "$PWD/data" "$PWD/audio"
+chmod 777 "$PWD/audio"
+
 # Run the container
 podman run -d \
     --name $CONTAINER_NAME \
     -p $PORT:80 \
     -v "$PWD/data":/var/www/html/data \
+    -v "$PWD/audio":/var/www/html/audio \
     $IMAGE_NAME
 
 echo "Waiting for container to start..."

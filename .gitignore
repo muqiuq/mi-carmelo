@@ -20,3 +20,6 @@ answer
 pet
 
 data/game_config.php
+
+# Cached TTS audio files
+audio/

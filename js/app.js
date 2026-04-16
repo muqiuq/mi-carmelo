@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnChallengeRepeat = document.getElementById('btn-challenge-repeat');
     const btnChallengeSubmit = document.getElementById('btn-challenge-submit');
     const btnChallengeClose = document.getElementById('btn-challenge-close');
+    const btnTtsPlay = document.getElementById('btn-tts-play');
     const feedCountdown = document.getElementById('feed-countdown');
 
     // Countdown timer
@@ -1452,12 +1453,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isCorrect) {
             challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
-            showFeedback('success', "Correct! 🎉");
+            showFeedback('success', "Correct! 🎉", '', q.answers[0]);
             btnChallengeNext.classList.remove('d-none');
             btnChallengeNext.focus();
         } else {
             const correctAnswers = q.answers.join(" OR ");
-            showFeedback('danger', "Incorrect 😔", `The correct answer was: ${correctAnswers}`);
+            showFeedback('danger', "Incorrect 😔", `The correct answer was: ${correctAnswers}`, q.answers[0]);
             btnChallengeRepeat.classList.remove('d-none');
             btnChallengeRepeat.focus();
         }
@@ -1468,9 +1469,11 @@ document.addEventListener('DOMContentLoaded', () => {
         challengeFeedbackText.classList.add('d-none');
         btnChallengeNext.classList.add('d-none');
         btnChallengeRepeat.classList.add('d-none');
+        btnTtsPlay.classList.add('d-none');
+        btnTtsPlay.removeAttribute('data-tts-text');
     }
 
-    function showFeedback(type, title, text = '') {
+    function showFeedback(type, title, text = '', ttsText = '') {
         challengeFeedback.className = `mt-4 p-3 rounded text-center alert alert-${type}`;
         challengeFeedbackTitle.textContent = title;
         
@@ -1479,6 +1482,11 @@ document.addEventListener('DOMContentLoaded', () => {
             challengeFeedbackText.classList.remove('d-none');
         } else {
             challengeFeedbackText.classList.add('d-none');
+        }
+
+        if (ttsText) {
+            btnTtsPlay.dataset.ttsText = ttsText;
+            btnTtsPlay.classList.remove('d-none');
         }
     }
 
@@ -1498,18 +1506,50 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (isCorrect) {
             challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
-            showFeedback('success', "Correct! 🎉");
+            showFeedback('success', "Correct! 🎉", '', q.answers[0]);
             btnChallengeNext.classList.remove('d-none');
             btnChallengeNext.focus();
         } else {
             const correctAnswers = q.answers.join(" OR ");
-            showFeedback('danger', "Incorrect 😔", `The correct answer was: ${correctAnswers}`);
+            showFeedback('danger', "Incorrect 😔", `The correct answer was: ${correctAnswers}`, q.answers[0]);
             btnChallengeRepeat.classList.remove('d-none');
             btnChallengeRepeat.focus();
         }
     }
 
     formChallenge.addEventListener('submit', handleSubmission);
+
+    btnTtsPlay.addEventListener('click', async () => {
+        const text = btnTtsPlay.dataset.ttsText;
+        if (!text) return;
+        btnTtsPlay.disabled = true;
+        btnTtsPlay.textContent = '⏳ ...';
+        try {
+            const res = await fetch('api/tts.php?text=' + encodeURIComponent(text));
+            const ct = res.headers.get('content-type') || '';
+            if (!res.ok || !ct.includes('audio/')) {
+                const body = await res.text();
+                console.error('TTS error:', res.status, ct, body);
+                let msg = `TTS failed (${res.status})`;
+                try { const d = JSON.parse(body); if (d.error) msg = d.error; } catch {}
+                btnTtsPlay.textContent = '❌ ' + msg;
+                btnTtsPlay.disabled = false;
+                setTimeout(() => { btnTtsPlay.textContent = '🔊 Escuchar'; }, 4000);
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.play();
+            audio.addEventListener('ended', () => URL.revokeObjectURL(url));
+            btnTtsPlay.disabled = false;
+            btnTtsPlay.textContent = '🔊 Escuchar';
+        } catch (e) {
+            btnTtsPlay.textContent = '❌ ' + e.message;
+            btnTtsPlay.disabled = false;
+            setTimeout(() => { btnTtsPlay.textContent = '🔊 Escuchar'; }, 4000);
+        }
+    });
 
     btnChallengeNext.addEventListener('click', () => {
         currentQuestionIndex++;

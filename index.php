@@ -40,6 +40,7 @@ if (file_exists($db_file)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Carmelo - Virtual Pet Chicken</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <!-- Twitter Bootstrap 5.3.8 CSS -->
     <link href="vendor/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css?v=<?= filemtime(__DIR__ . '/css/style.css') ?>">
@@ -166,7 +167,7 @@ if (file_exists($db_file)) {
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>
-                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.2</div>
+                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.3</div>
             </main>
 
             <!-- CHALLENGE OVERLAY -->
@@ -192,8 +193,11 @@ if (file_exists($db_file)) {
                             <div id="challenge-feedback" class="mt-4 p-3 rounded d-none text-center">
                                 <h5 id="challenge-feedback-title"></h5>
                                 <p id="challenge-feedback-text" class="d-none"></p>
-                                <button id="btn-challenge-next" class="btn btn-success w-100 mt-2 d-none">Next</button>
-                                <button id="btn-challenge-repeat" class="btn btn-warning w-100 mt-2 d-none">Repeat</button>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button type="button" id="btn-tts-play" class="btn btn-outline-secondary btn-lg flex-fill d-none">🔊 Escuchar</button>
+                                    <button id="btn-challenge-next" class="btn btn-success btn-lg flex-fill d-none">▶️ Next</button>
+                                </div>
+                                <button id="btn-challenge-repeat" class="btn btn-warning w-100 mt-2 d-none">🔄 Repeat</button>
                             </div>
                         </div>
                     </div>

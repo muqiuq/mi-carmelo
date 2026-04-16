@@ -240,3 +240,24 @@ function set_app_state(PDO $pdo, string $key, string $value): void {
     $stmt = $pdo->prepare("INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
     $stmt->execute([$key, $value]);
 }
+
+// Migration: audio_cache table
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS audio_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            text_hash TEXT UNIQUE NOT NULL,
+            text TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+} catch (PDOException $e) {
+    // Ignore
+}
+
+// Ensure audio directory exists
+$audio_dir = __DIR__ . '/../audio';
+if (!is_dir($audio_dir)) {
+    mkdir($audio_dir, 0777, true);
+}
