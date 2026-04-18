@@ -101,6 +101,76 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Smoothly walk Carmelo from his current position to the bed (right side),
+    // then trigger the lie-down animation. Avoids the snap-to-50% jump.
+    function walkToBedThenSleep() {
+        const petArea = document.getElementById('pet-area');
+        if (!petArea) return;
+        const areaRect = petArea.getBoundingClientRect();
+        const spriteRect = chickenSprite.getBoundingClientRect();
+        const currentCenterPx = (spriteRect.left + spriteRect.width / 2) - areaRect.left;
+        const currentLeftPct = (currentCenterPx / areaRect.width) * 100;
+
+        // Strip any animation, fix the current position inline
+        chickenSprite.classList.remove(...ALL_ANIM_CLASSES);
+        chickenSprite.style.left = currentLeftPct + '%';
+        chickenSprite.style.bottom = '10px';
+        chickenSprite.style.transform = 'translateX(-50%) scaleX(1)';
+        // Force reflow so transition starts from current values
+        void chickenSprite.offsetWidth;
+        // Distance-based duration so speed feels constant
+        const distance = Math.abs(85 - currentLeftPct);
+        const walkMs = Math.max(700, Math.round(distance * 40));
+        chickenSprite.style.transition = `left ${walkMs}ms ease-in-out`;
+        chickenSprite.style.left = '85%';
+        chickenSprite.classList.add('walk-active');
+
+        setTimeout(() => {
+            chickenSprite.classList.remove('walk-active');
+            chickenSprite.style.transition = '';
+            chickenSprite.style.left = '';
+            chickenSprite.style.bottom = '';
+            chickenSprite.style.transform = '';
+            setAnimation('anim-sleep');
+            setTimeout(() => showSleepZ(true), 2000);
+        }, walkMs + 50);
+    }
+
+    // Wake up at the bed, then smoothly walk back to the idle position.
+    function wakeAndWalkBack() {
+        setAnimation('anim-wake');
+        // anim-wake = 1.4s, ends at left:85% bottom:10px facing left (scaleX(-1))
+        setTimeout(() => {
+            chickenSprite.classList.remove(...ALL_ANIM_CLASSES);
+            chickenSprite.style.left = '85%';
+            chickenSprite.style.bottom = '10px';
+            chickenSprite.style.transform = 'translateX(-50%) scaleX(-1)';
+            void chickenSprite.offsetWidth;
+            const walkMs = 1800;
+            chickenSprite.style.transition = `left ${walkMs}ms ease-in-out`;
+            chickenSprite.style.left = '40%';
+            chickenSprite.classList.add('walk-active');
+            setTimeout(() => {
+                chickenSprite.classList.remove('walk-active');
+                // Turn around to face right before idle starts
+                chickenSprite.style.transition = 'transform 200ms ease-in-out';
+                chickenSprite.style.transform = 'translateX(-50%) scaleX(1)';
+                setTimeout(() => {
+                    // Apply anim-idle FIRST, then clear inline styles in the
+                    // same frame. Otherwise the sprite reverts to CSS default
+                    // (left:50%) for one frame before walk-x-narrow (left:40%)
+                    // takes over, causing a visible double-jump.
+                    chickenSprite.classList.add('anim-idle');
+                    chickenSprite.style.transition = '';
+                    chickenSprite.style.left = '';
+                    chickenSprite.style.bottom = '';
+                    chickenSprite.style.transform = '';
+                    fetchStats();
+                }, 220);
+            }, walkMs + 30);
+        }, 2200);
+    }
+
     // Animation init
     chickenSprite.classList.add('anim-idle');
 
@@ -204,7 +274,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function updateStatsUI(stats) {
+    function updateStatsUI(incoming, skipSleepTransitions = false) {
+        // Merge with last known state so partial API responses never wipe existing fields
+        const stats = { ...lastStats, ...incoming };
+        lastStats = stats;
+
         document.getElementById('diamond-count').textContent = stats.diamonds || 0;
         document.getElementById('star-count').textContent = stats.stars || 0;
         document.getElementById('point-count').textContent = stats.total_points || 0;
@@ -252,8 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setAnimation('anim-asleep');
                     showSleepZ(true);
                 } else {
-                    setAnimation('anim-sleep');
-                    setTimeout(() => showSleepZ(true), 1300);
+                    walkToBedThenSleep();
                 }
                 isSleeping = true;
             }
@@ -267,14 +340,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (isSleeping) {
-            // Just woke up — play wake animation, then re-render
+            if (skipSleepTransitions) return;
+            // Just woke up — play wake animation, then walk back to idle.
+            // wakeAndWalkBack() calls fetchStats() itself once the walk completes.
             isSleeping = false;
             showSleepZ(false);
-            setAnimation('anim-wake');
+            wakeAndWalkBack();
             speechBubble.classList.add('d-none');
             stopCountdown();
             isFirstRender = false;
-            setTimeout(() => fetchStats(), 2000);
             return;
         }
 
@@ -377,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderFlowers(slots) {
         const decorEl = document.getElementById('pet-decor');
         if (!decorEl) return;
-        decorEl.innerHTML = '';
+        decorEl.querySelectorAll('.wall-flower').forEach(el => el.remove());
 
         const flowerSpots = [
             { left: '8%', top: '20%' },
@@ -1536,6 +1610,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const ALL_ANIM_CLASSES = ['anim-idle', 'anim-eat', 'anim-pet', 'anim-star', 'anim-hungry', 'anim-dead', 'anim-sleep', 'anim-wake', 'anim-asleep'];
 
     function setAnimation(animClass) {
+        // No-op if already on this animation — prevents reflow-jump back to
+        // CSS default (left:50%) and restart of the keyframe at 0%.
+        if (chickenSprite.classList.contains(animClass)) return;
         chickenSprite.classList.remove(...ALL_ANIM_CLASSES);
         void chickenSprite.offsetWidth; // force reflow
         chickenSprite.classList.add(animClass);
@@ -1589,6 +1666,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.addEventListener('animationend', () => el.remove());
             }
         }, interval);
+    }
+
+    function spawnSleepHearts() {
+        const area = document.getElementById('pet-area');
+        if (!area) return;
+        document.body.classList.add('has-sleep-hearts');
+        const container = document.createElement('div');
+        container.className = 'sleep-hearts';
+        container.innerHTML = '<span class="zchar">💕</span><span class="zchar">💖</span><span class="zchar">💗</span>';
+        area.appendChild(container);
+        // Remove after the 3s animation + 2s delay of the 3rd span finishes (5s total)
+        setTimeout(() => {
+            if (container.parentNode) container.remove();
+            document.body.classList.remove('has-sleep-hearts');
+        }, 5100);
     }
 
     // --- CHALLENGE ENGINE (Step 6) ---
@@ -1828,9 +1920,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             
             if(data.success) {
-                updateStatsUI(data.stats);
+                const wasSleeping = isSleeping;
+                updateStatsUI(data.stats, wasSleeping);
                 
-                if (data.earned_star) {
+                if (challengeType === 'pet' && wasSleeping) {
+                    // Only spawn sleep-hearts and nothing else (no wake, no anim-pet, no anim-star)
+                    spawnSleepHearts();
+                    console.log("spawnSleepHearts");
+                } else if (data.earned_star) {
                     triggerAnimation('anim-star', 3125);
                 } else if (challengeType === 'revive') {
                     triggerAnimation('anim-pet', 4500);

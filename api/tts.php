@@ -53,7 +53,8 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => json_encode([
         'model' => 'tts-1',
         'input' => '[lang:de] ' . $text,
-        'voice' => 'ash',
+        'voice' => 'alloy',
+        'language' => 'de',
         'response_format' => 'mp3',
     ]),
 ]);
