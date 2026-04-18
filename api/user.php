@@ -112,6 +112,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $stats['lamp_slots'] = $lamp_slots;
 
+        $frameStmt = $pdo->prepare("SELECT slot_index FROM user_decorations WHERE user_id = ? AND item_code = 'picture_frame' ORDER BY slot_index ASC");
+        $frameStmt->execute([$_SESSION['user_id']]);
+        $frame_slots = [];
+        foreach ($frameStmt->fetchAll() as $row) {
+            $frame_slots[] = (int)$row['slot_index'];
+        }
+        $stats['frame_slots'] = $frame_slots;
+
+        $bedStmt = $pdo->prepare("SELECT COUNT(*) FROM user_decorations WHERE user_id = ? AND item_code = 'chicken_house'");
+        $bedStmt->execute([$_SESSION['user_id']]);
+        $stats['bed_owned'] = ((int)$bedStmt->fetchColumn()) > 0;
+
         // Fiesta cooldown
         $fiestaCd = $game_config['fiesta_cooldown_seconds'] ?? 300;
         if (!empty($stats['last_fiesta'])) {

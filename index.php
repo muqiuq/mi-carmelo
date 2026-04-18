@@ -164,6 +164,7 @@ if (file_exists($db_file)) {
                 <div class="mt-5 d-flex flex-wrap justify-content-center gap-2">
                     <button id="btn-settings" class="btn btn-outline-secondary btn-sm">Settings</button>
                     <button id="btn-admin" class="btn btn-outline-danger btn-sm d-none">Admin Panel</button>
+                    <button id="btn-sleep-toggle" class="btn btn-outline-info btn-sm d-none" title="Schlaf-Modus umschalten">😴 Auto</button>
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>

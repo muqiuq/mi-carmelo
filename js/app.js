@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnShop = document.getElementById('btn-shop');
     const btnShopBack = document.getElementById('btn-shop-back');
     const btnAdmin = document.getElementById('btn-admin');
+    const btnSleepToggle = document.getElementById('btn-sleep-toggle');
     const formSettings = document.getElementById('form-settings');
     const formPassword = document.getElementById('form-password');
     const settingsMsg = document.getElementById('settings-msg');
@@ -59,6 +60,46 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentQuestionAttempts = 0;
     let challengeType = 'pet'; // or 'feed'
     let challengeResults = []; // stores objects { question_id, attempts }
+
+    // Sleep state
+    let isSleeping = false;
+    let lastStats = null;
+    let isFirstRender = true;
+    let sleepOverride = localStorage.getItem('sleep_override') || 'auto'; // 'auto' | 'sleep' | 'awake'
+
+    function shouldSleep() {
+        if (sleepOverride === 'sleep') return true;
+        if (sleepOverride === 'awake') return false;
+        const h = new Date().getHours();
+        return h >= 1 && h < 8;
+    }
+
+    function updateSleepToggleLabel() {
+        if (!btnSleepToggle) return;
+        const labels = {
+            auto:  '😴 Auto',
+            sleep: '😴 Schläft',
+            awake: '☀️ Wach'
+        };
+        btnSleepToggle.textContent = labels[sleepOverride] || labels.auto;
+    }
+
+    function showSleepZ(show) {
+        const petArea = document.getElementById('pet-area');
+        if (!petArea) return;
+        petArea.classList.toggle('is-sleeping', !!show);
+        let z = petArea.querySelector('.sleep-zzz');
+        if (show) {
+            if (!z) {
+                z = document.createElement('div');
+                z.className = 'sleep-zzz';
+                z.textContent = 'z Z z';
+                petArea.appendChild(z);
+            }
+        } else if (z) {
+            z.remove();
+        }
+    }
 
     // Animation init
     chickenSprite.classList.add('anim-idle');
@@ -111,12 +152,27 @@ document.addEventListener('DOMContentLoaded', () => {
         showView(viewLogin);
     });
 
+    btnSleepToggle.addEventListener('click', () => {
+        const cycle = { auto: 'sleep', sleep: 'awake', awake: 'auto' };
+        sleepOverride = cycle[sleepOverride] || 'auto';
+        localStorage.setItem('sleep_override', sleepOverride);
+        updateSleepToggleLabel();
+        if (lastStats) updateStatsUI(lastStats);
+    });
+
+    // Re-evaluate sleep state every minute (handles auto-mode time crossings)
+    setInterval(() => {
+        if (lastStats && !lastStats.is_dead) updateStatsUI(lastStats);
+    }, 60000);
+
     // --- INITIALIZE GAME VIEW ---
     let sessionCheckInterval = null;
 
     async function initGameView() {
         document.getElementById('user-display-name').textContent = `(${currentUser.username})`;
         btnAdmin.classList.toggle('d-none', Number(currentUser.isadmin) !== 1);
+        btnSleepToggle.classList.toggle('d-none', Number(currentUser.isadmin) !== 1);
+        updateSleepToggleLabel();
         
         await fetchStats();
         showView(viewGame);
@@ -158,6 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(stats.lamp_slots)) {
             renderLamps(stats.lamp_slots);
         }
+        if (Array.isArray(stats.frame_slots)) {
+            renderFrames(stats.frame_slots);
+        }
+        renderBed(stats.bed_owned);
+        lastStats = stats;
         if (stats.fiesta_cooldown > 0) {
             startFiestaCooldown(stats.fiesta_cooldown);
         }
@@ -179,6 +240,43 @@ document.addEventListener('DOMContentLoaded', () => {
         // Alive — ensure dead overlay hidden, buttons visible
         deadOverlay.classList.add('d-none');
         gameButtons.classList.remove('d-none');
+
+        // Sleep takes priority over hungry/idle when bed owned and night-time
+        const wantSleep = !!stats.bed_owned && shouldSleep();
+        const petArea = document.getElementById('pet-area');
+        if (wantSleep) {
+            speechBubble.classList.add('d-none');
+            if (!isSleeping) {
+                // First time entering sleep state in this session
+                if (isFirstRender) {
+                    setAnimation('anim-asleep');
+                    showSleepZ(true);
+                } else {
+                    setAnimation('anim-sleep');
+                    setTimeout(() => showSleepZ(true), 1300);
+                }
+                isSleeping = true;
+            }
+            btnFeed.disabled = true;
+            btnFeed.textContent = '😴 Schläft';
+            btnFeed.classList.remove('btn-warning');
+            btnFeed.classList.add('btn-secondary');
+            stopCountdown();
+            checkFiestaTime();
+            isFirstRender = false;
+            return;
+        }
+        if (isSleeping) {
+            // Just woke up — play wake animation, then re-render
+            isSleeping = false;
+            showSleepZ(false);
+            setAnimation('anim-wake');
+            speechBubble.classList.add('d-none');
+            stopCountdown();
+            isFirstRender = false;
+            setTimeout(() => fetchStats(), 2000);
+            return;
+        }
 
         // Handle "hungry" bubble + animation
         if (stats.is_hungry) {
@@ -205,6 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         checkFiestaTime();
+        isFirstRender = false;
     }
 
     // Revive handler — must complete a challenge first
@@ -318,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const lampSpots = [
             { cls: 'wall-lamp', left: '3%', top: '28%' },
             { cls: 'wall-lamp', left: '90%', top: '28%' },
-            { cls: 'floor-lamp', left: '92%', bottom: '8%' }
+            { cls: 'floor-lamp', left: '8%', bottom: '8%' }
         ];
 
         slots.forEach(slot => {
@@ -331,6 +430,58 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lampSpots[idx].bottom) lamp.style.bottom = lampSpots[idx].bottom;
             decorEl.appendChild(lamp);
         });
+    }
+
+    function renderFrames(slots) {
+        const decorEl = document.getElementById('pet-decor');
+        if (!decorEl) return;
+
+        decorEl.querySelectorAll('.picture-frame').forEach(el => el.remove());
+
+        // Slot 0 = left turtle, slot 1 = right cat. Below the wall lamps.
+        const frameSpots = [
+            { left: '18%', top: '42%', variant: 'frame-turtle', emoji: '\u{1F422}' },
+            { left: '78%', top: '42%', variant: 'frame-bunny',  emoji: '\u{1F430}' }
+        ];
+
+        slots.forEach(slot => {
+            const idx = parseInt(slot, 10);
+            if (Number.isNaN(idx) || idx < 0 || idx >= frameSpots.length) return;
+            const spot = frameSpots[idx];
+            const frame = document.createElement('div');
+            frame.className = 'picture-frame ' + spot.variant;
+            frame.style.left = spot.left;
+            frame.style.top = spot.top;
+            const inner = document.createElement('div');
+            inner.className = 'frame-inner';
+            inner.textContent = spot.emoji;
+            frame.appendChild(inner);
+            decorEl.appendChild(frame);
+        });
+    }
+
+    function renderBed(owned) {
+        const decorEl = document.getElementById('pet-decor');
+        const petArea = document.getElementById('pet-area');
+        if (!decorEl || !petArea) return;
+
+        decorEl.querySelectorAll('.bed').forEach(el => el.remove());
+        petArea.classList.toggle('has-bed', !!owned);
+
+        if (!owned) return;
+
+        const bed = document.createElement('div');
+        bed.className = 'bed';
+        bed.innerHTML = `
+            <div class="bed-frame"></div>
+            <div class="bed-mattress"></div>
+            <div class="bed-blanket"></div>
+            <div class="bed-pillow"></div>
+            <div class="bed-headboard"></div>
+            <div class="bed-leg bed-leg-l"></div>
+            <div class="bed-leg bed-leg-r"></div>
+        `;
+        decorEl.appendChild(bed);
     }
 
     async function loadShop() {
@@ -359,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'col-12 col-md-6';
                 const lockedClass = item.can_afford ? '' : ' shop-item-locked';
-                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp';
+                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'chicken_house';
                 const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
 
                 card.innerHTML = `
@@ -1382,7 +1533,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- GAME ACTIONS (Stubs for Step 6) ---
-    const ALL_ANIM_CLASSES = ['anim-idle', 'anim-eat', 'anim-pet', 'anim-star', 'anim-hungry', 'anim-dead'];
+    const ALL_ANIM_CLASSES = ['anim-idle', 'anim-eat', 'anim-pet', 'anim-star', 'anim-hungry', 'anim-dead', 'anim-sleep', 'anim-wake', 'anim-asleep'];
 
     function setAnimation(animClass) {
         chickenSprite.classList.remove(...ALL_ANIM_CLASSES);

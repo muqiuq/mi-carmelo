@@ -94,8 +94,8 @@ try {
         $shopSeed = $pdo->prepare("INSERT OR IGNORE INTO shop_items (code, name, description, currency, price, max_quantity, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $shopSeed->execute(['flower_wall', 'Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 10, 10]);
         $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
-        $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein einfacher Bilderrahmen als Dekoration.', 'diamonds', 7, 3, 30]);
-        $shopSeed->execute(['chicken_house', 'Haus', 'Ein kleines Premium-Haus für dein Huhn.', 'stars', 10, 1, 40]);
+        $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
+        $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
     }
 
 } catch (PDOException $e) {
@@ -181,8 +181,8 @@ try {
     $shopSeed = $pdo->prepare("INSERT OR IGNORE INTO shop_items (code, name, description, currency, price, max_quantity, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $shopSeed->execute(['flower_wall', 'Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 10, 10]);
     $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
-    $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein einfacher Bilderrahmen als Dekoration.', 'diamonds', 7, 3, 30]);
-    $shopSeed->execute(['chicken_house', 'Haus', 'Ein kleines Premium-Haus für dein Huhn.', 'stars', 10, 1, 40]);
+    $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
+    $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
 
     // Enforce latest pricing/currency/names for existing items
     $shopUpdate = $pdo->prepare("UPDATE shop_items SET name = ?, description = ?, currency = ?, price = ? WHERE code = ?");
@@ -192,8 +192,9 @@ try {
     // Enforce latest max_quantity values
     $mqUpdate = $pdo->prepare("UPDATE shop_items SET max_quantity = ? WHERE code = ?");
     $mqUpdate->execute([3, 'small_lamp']);
-    $shopUpdate->execute(['Bilderrahmen', 'Ein einfacher Bilderrahmen als Dekoration.', 'diamonds', 7, 'picture_frame']);
-    $shopUpdate->execute(['Haus', 'Ein kleines Premium-Haus für dein Huhn.', 'stars', 10, 'chicken_house']);
+    $mqUpdate->execute([2, 'picture_frame']);
+    $shopUpdate->execute(['Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 'picture_frame']);
+    $shopUpdate->execute(['Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 'chicken_house']);
 } catch (PDOException $e) {
     // Ignore migration errors to keep startup resilient
 }

@@ -205,7 +205,7 @@ test.describe('Mi Carmelo Core Game Loop', () => {
 
     const shopList = page.locator('#shop-list');
     await expect(shopList).toContainText('Blume');
-    await expect(shopList).toContainText('Haus');
+    await expect(shopList).toContainText('Bett');
 
     // Availability stock count is hidden for normal users
     await expect(shopList).not.toContainText('Available:');

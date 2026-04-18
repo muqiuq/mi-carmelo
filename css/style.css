@@ -21,8 +21,8 @@ body {
 #pet-area {
     position: relative;
     width: 100%;
-    max-width: 340px;
-    height: 200px;
+    max-width: 480px;
+    height: 220px;
     margin: 2rem auto 0;
     overflow: hidden;
 }
@@ -144,6 +144,121 @@ body {
     background: #999;
     border-radius: 1px;
 }
+
+/* ---- Picture frames ---- */
+.picture-frame {
+    position: absolute;
+    width: 38px;
+    height: 44px;
+    transform: translate(-50%, 0);
+    background: linear-gradient(145deg, #d9a066 0%, #b97a3d 50%, #8a5a2b 100%);
+    border-radius: 4px;
+    padding: 4px;
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.25),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+        inset 0 0 0 2px rgba(0, 0, 0, 0.15);
+}
+.picture-frame::before {
+    /* tiny nail above the frame */
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    width: 3px;
+    height: 3px;
+    background: #555;
+    border-radius: 50%;
+    transform: translateX(-50%);
+}
+.picture-frame .frame-inner {
+    width: 100%;
+    height: 100%;
+    background: #fff8e7;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    line-height: 1;
+    box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.15);
+}
+.picture-frame.frame-turtle .frame-inner {
+    background: linear-gradient(180deg, #d6f0e0 0%, #b9e3c8 100%);
+}
+.picture-frame.frame-bunny .frame-inner {
+    background: linear-gradient(180deg, #fff4d6 0%, #f5e3a8 100%);
+}
+
+/* ---- Bed (chicken_house) — simple side view ---- */
+.bed {
+    position: absolute;
+    right: 1%;
+    bottom: 4px;
+    width: 130px;
+    height: 46px;
+    z-index: 1;
+}
+/* Mattress: a thick rounded slab */
+.bed-mattress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 6px;
+    height: 22px;
+    background: linear-gradient(180deg, #fff 0%, #e0e0e0 100%);
+    border: 1px solid #b0b0b0;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+/* Headboard: tall rectangle on the right */
+.bed-headboard {
+    position: absolute;
+    right: 0;
+    bottom: 6px;
+    width: 10px;
+    height: 40px;
+    background: linear-gradient(180deg, #d9a066 0%, #8a5a2b 100%);
+    border-radius: 3px 3px 0 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+/* Pillow: small rounded shape on the right end of the mattress */
+.bed-pillow {
+    position: absolute;
+    right: 14px;
+    bottom: 18px;
+    width: 32px;
+    height: 22px;
+    background: linear-gradient(180deg, #ffe0ec 0%, #f8c8d8 100%);
+    border: 1px solid #e8b8c8;
+    border-radius: 6px;
+    z-index: 2;
+}
+/* Blanket: drapes from pillow to left foot */
+.bed-blanket {
+    position: absolute;
+    left: 0;
+    right: 50px;
+    bottom: 6px;
+    height: 22px;
+    background: linear-gradient(180deg, #5dade2 0%, #2e86c1 100%);
+    border: 1px solid #2471a3;
+    border-radius: 4px 0 0 4px;
+    z-index: 2;
+}
+/* Two visible legs */
+.bed-leg {
+    position: absolute;
+    bottom: 0;
+    width: 5px;
+    height: 8px;
+    background: #6b3f1f;
+    border-radius: 0 0 1px 1px;
+}
+.bed-leg-l { left: 3px; }
+.bed-leg-r { right: 3px; }
+/* hide the old frame element if it's still in the DOM */
+.bed-frame { display: none; }
 
 /* ---- Speech bubble ---- */
 #speech-bubble {
@@ -611,6 +726,127 @@ body {
 .anim-dead .chicken-wing {
     transform: rotate(-30deg);
     transform-origin: top left;
+}
+
+/* =========================================================
+   ANIMATION: SLEEP — walk to bed, lie down with Z's
+   ========================================================= */
+/* Narrow walking range when bed exists (don't walk into bed) */
+#pet-area.has-bed #chicken-sprite.anim-idle,
+#pet-area.has-bed .anim-idle #chicken-sprite {
+    animation: walk-x-narrow 16s ease-in-out infinite;
+}
+@keyframes walk-x-narrow {
+    0%   { left: 40%; transform: translateX(-50%) scaleX(1); }
+    5%   { left: 40%; transform: translateX(-50%) scaleX(1); }
+    25%  { left: 60%; transform: translateX(-50%) scaleX(1); }
+    30%  { left: 60%; transform: translateX(-50%) scaleX(-1); }
+    35%  { left: 60%; transform: translateX(-50%) scaleX(-1); }
+    55%  { left: 18%; transform: translateX(-50%) scaleX(-1); }
+    60%  { left: 18%; transform: translateX(-50%) scaleX(1); }
+    65%  { left: 18%; transform: translateX(-50%) scaleX(1); }
+    95%  { left: 40%; transform: translateX(-50%) scaleX(1); }
+    100% { left: 40%; transform: translateX(-50%) scaleX(1); }
+}
+
+/* Sleep: walk to bed (0–45%), then lie down rotated onto the mattress */
+#chicken-sprite.anim-sleep {
+    animation: go-to-bed 2.2s ease forwards;
+}
+@keyframes go-to-bed {
+    0%   { left: 50%; right: auto; bottom: 10px; transform: translateX(-50%) rotate(0deg); }
+    45%  { left: auto; right: 30px; bottom: 10px; transform: rotate(0deg); }
+    60%  { left: auto; right: 30px; bottom: 10px; transform: rotate(0deg); }
+    100% { left: auto; right: 25px; bottom: 6px;  transform: rotate(90deg) scaleX(-1); }
+}
+
+/* Static "already asleep" pose — same final state as anim-sleep but no animation */
+#chicken-sprite.anim-asleep {
+    left: auto;
+    right: 25px;
+    bottom: 6px;
+    transform: rotate(90deg) scaleX(-1);
+}
+.anim-asleep .chicken-eye   { height: 1px; border-radius: 0; }
+
+/* Eyes close at the end of the sleep animation */
+
+/* Legs: walk during 0–45%, then still */
+.anim-sleep .chicken-leg-left {
+    animation: sleep-walk-leg-l 2.2s ease forwards;
+    transform-origin: top center;
+}
+.anim-sleep .chicken-leg-right {
+    animation: sleep-walk-leg-r 2.2s ease forwards;
+    transform-origin: top center;
+}
+@keyframes sleep-walk-leg-l {
+    0%        { transform: rotate(0deg); }
+    8%        { transform: rotate(20deg); }
+    16%       { transform: rotate(-20deg); }
+    24%       { transform: rotate(20deg); }
+    32%       { transform: rotate(-20deg); }
+    40%       { transform: rotate(20deg); }
+    45%, 100% { transform: rotate(0deg); }
+}
+@keyframes sleep-walk-leg-r {
+    0%        { transform: rotate(0deg); }
+    8%        { transform: rotate(-20deg); }
+    16%       { transform: rotate(20deg); }
+    24%       { transform: rotate(-20deg); }
+    32%       { transform: rotate(20deg); }
+    40%       { transform: rotate(-20deg); }
+    45%, 100% { transform: rotate(0deg); }
+}
+
+/* Eyes close after settling in bed */
+.anim-sleep .chicken-eye {
+    animation: close-eyes 2.2s ease forwards;
+}
+@keyframes close-eyes {
+    0%, 60% { height: 7px; border-radius: 50%; background: #222; }
+    100%    { height: 1px; border-radius: 0; background: #222; }
+}
+
+/* Snore Z's — floating above the bed, independent of sprite rotation */
+#pet-area.is-sleeping .sleep-zzz {
+    position: absolute;
+    right: 30px;
+    bottom: 60px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #6c757d;
+    letter-spacing: 4px;
+    z-index: 5;
+    pointer-events: none;
+    animation: zzz 2.4s ease-in-out infinite;
+}
+@keyframes zzz {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0.7); }
+    20%  { opacity: 1; transform: translate(2px, -6px) scale(0.9); }
+    60%  { opacity: 1; transform: translate(8px, -18px) scale(1.1); }
+    100% { opacity: 0; transform: translate(14px, -30px) scale(1.2); }
+}
+
+/* Wake: get out of bed, turn around and walk back to a starting walking position */
+#chicken-sprite.anim-wake {
+    animation: get-out-of-bed 2s ease forwards;
+}
+@keyframes get-out-of-bed {
+    0%   { left: auto; right: 25px; bottom: 6px;  transform: rotate(90deg) scaleX(-1); }
+    20%  { left: auto; right: 30px; bottom: 10px; transform: rotate(0deg); }
+    25%  { left: auto; right: 30px; bottom: 10px; transform: scaleX(-1); }
+    95%  { left: 40%;  right: auto; bottom: 10px; transform: translateX(-50%) scaleX(-1); }
+    100% { left: 40%;  right: auto; bottom: 10px; transform: translateX(-50%) scaleX(1);  }
+}
+/* Restore body parts on wake */
+.anim-wake .chicken-leg-left {
+    animation: sleep-walk-leg-l 2s ease-in-out forwards reverse;
+    transform-origin: top center;
+}
+.anim-wake .chicken-leg-right {
+    animation: sleep-walk-leg-r 2s ease-in-out forwards reverse;
+    transform-origin: top center;
 }
 
 /* =========================================================

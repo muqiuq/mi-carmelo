@@ -190,6 +190,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
 
             $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, 'small_lamp', ?)");
             $insDecor->execute([$_SESSION['user_id'], $freeSlot]);
+        } elseif ($item['code'] === 'picture_frame') {
+            // Picture frames use fixed slots: 0 = left turtle, 1 = right cat.
+            $slotsStmt = $pdo->prepare("SELECT slot_index FROM user_decorations WHERE user_id = ? AND item_code = 'picture_frame' ORDER BY slot_index ASC");
+            $slotsStmt->execute([$_SESSION['user_id']]);
+            $used = [];
+            foreach ($slotsStmt->fetchAll() as $r) {
+                $used[(int)$r['slot_index']] = true;
+            }
+
+            $freeSlot = null;
+            for ($i = 0; $i < 2; $i++) {
+                if (!isset($used[$i])) {
+                    $freeSlot = $i;
+                    break;
+                }
+            }
+
+            if ($freeSlot === null) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'error' => 'Keine freien Bilderrahmen-Plätze']);
+                exit;
+            }
+
+            $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, 'picture_frame', ?)");
+            $insDecor->execute([$_SESSION['user_id'], $freeSlot]);
         } else {
             $nextSlotStmt = $pdo->prepare("SELECT COALESCE(MAX(slot_index), -1) + 1 FROM user_decorations WHERE user_id = ? AND item_code = ?");
             $nextSlotStmt->execute([$_SESSION['user_id'], $item['code']]);
