@@ -226,7 +226,7 @@ body {
 .bed-pillow {
     position: absolute;
     right: 14px;
-    bottom: 18px;
+    bottom: 25px;
     width: 32px;
     height: 22px;
     background: linear-gradient(180deg, #ffe0ec 0%, #f8c8d8 100%);
@@ -811,21 +811,30 @@ body {
 /* Snore Z's — floating above the bed, independent of sprite rotation */
 #pet-area.is-sleeping .sleep-zzz {
     position: absolute;
-    right: 30px;
-    bottom: 60px;
-    font-size: 18px;
-    font-weight: bold;
-    color: #6c757d;
-    letter-spacing: 4px;
+    right: 5px;
+    bottom: 95px;
     z-index: 5;
     pointer-events: none;
-    animation: zzz 2.4s ease-in-out infinite;
+    width: 40px;
+    height: 60px;
 }
-@keyframes zzz {
-    0%   { opacity: 0; transform: translate(0, 0) scale(0.7); }
-    20%  { opacity: 1; transform: translate(2px, -6px) scale(0.9); }
-    60%  { opacity: 1; transform: translate(8px, -18px) scale(1.1); }
-    100% { opacity: 0; transform: translate(14px, -30px) scale(1.2); }
+.sleep-zzz .zchar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    font-weight: bold;
+    color: #6c757d;
+    opacity: 0;
+    animation: zfloat 3s ease-in-out infinite;
+}
+.sleep-zzz .zchar:nth-child(1) { animation-delay: 0s;   font-size: 14px; }
+.sleep-zzz .zchar:nth-child(2) { animation-delay: 1s;   font-size: 18px; }
+.sleep-zzz .zchar:nth-child(3) { animation-delay: 2s;   font-size: 22px; }
+@keyframes zfloat {
+    0%   { opacity: 0; transform: translate(0, 0); }
+    15%  { opacity: 1; transform: translate(2px, -10px); }
+    85%  { opacity: 1; transform: translate(8px, -45px); }
+    100% { opacity: 0; transform: translate(12px, -55px); }
 }
 
 /* Wake: get out of bed, turn around and walk back to a starting walking position */

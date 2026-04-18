@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!z) {
                 z = document.createElement('div');
                 z.className = 'sleep-zzz';
-                z.textContent = 'z Z z';
+                z.innerHTML = '<span class="zchar">z</span><span class="zchar">Z</span><span class="zchar">z</span>';
                 petArea.appendChild(z);
             }
         } else if (z) {
