@@ -59,7 +59,7 @@ if ($action === 'generate') {
             'Authorization: Bearer ' . $api_key,
         ],
         CURLOPT_POSTFIELDS => json_encode([
-            'model' => 'gpt-5.4-nano',
+            'model' => 'gpt-5.4-mini',
             'messages' => [
                 ['role' => 'system', 'content' => $system_prompt],
                 ['role' => 'user', 'content' => $user_prompt],

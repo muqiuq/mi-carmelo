@@ -142,3 +142,23 @@
   answers:
     - "essen"
     - "zu essen"
+
+- question: "coche"
+  answers:
+    - "Auto"
+    - "der Wagen"
+
+- question: "gasolina"
+  answers:
+    - "Benzin"
+    - "das Benzin"
+
+- question: "llanta"
+  answers:
+    - "Reifen"
+    - "der Reifen"
+
+- question: "conductor"
+  answers:
+    - "Fahrer"
+    - "der Fahrer"

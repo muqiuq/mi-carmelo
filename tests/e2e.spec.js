@@ -539,7 +539,7 @@ test.describe('Mi Carmelo Core Game Loop', () => {
 
     // Gap label must be visible
     await expect(page.locator('#challenge-question-label')).toBeVisible();
-    await expect(page.locator('#challenge-question-label')).toContainText('Fill in the gap');
+    await expect(page.locator('#challenge-question-label')).toContainText('Completa la frase');
 
     // Text input (not MC options) must be shown
     await expect(page.locator('#challenge-text-input')).toBeVisible();

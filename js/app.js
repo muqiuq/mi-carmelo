@@ -1773,7 +1773,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Question type label
         if (q.type === 'gap') {
-            qLabel.textContent = '✏️ Fill in the gap:';
+            qLabel.textContent = '✏️ Completa la frase:';
             qLabel.classList.remove('d-none');
         } else {
             qLabel.textContent = '';
@@ -1868,7 +1868,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function handleSubmission(e) {
+    async function handleSubmission(e) {
         e.preventDefault();
         
         const q = currentChallenge[currentQuestionIndex];
@@ -1881,12 +1881,57 @@ document.addEventListener('DOMContentLoaded', () => {
         
         inputChallengeAnswer.disabled = true;
         btnChallengeSubmit.classList.add('d-none');
-        
+
         if (isCorrect) {
             challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
             showFeedback('success', "Correct! 🎉", '', q.answers[0]);
             btnChallengeNext.classList.remove('d-none');
             btnChallengeNext.focus();
+        } else if (q.type === 'gap') {
+            // For gap questions: ask OpenAI if the answer is grammatically acceptable
+            // Lock all navigation buttons while the request is in flight
+            btnChallengeNext.classList.add('d-none');
+            btnChallengeRepeat.classList.add('d-none');
+            // Show spinner in feedback area (bypass showFeedback to use innerHTML for the spinner)
+            challengeFeedback.className = 'mt-4 p-3 rounded text-center alert alert-info';
+            challengeFeedbackTitle.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Checking…';
+            challengeFeedbackText.classList.add('d-none');
+            btnTtsPlay.classList.add('d-none');
+            let aiAccepted = false;
+            let aiExplanation = null;
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s > PHP's 10s curl timeout
+                const res = await fetch('api/challenge.php?action=check_gap_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sentence:    q.question,
+                        user_answer: inputChallengeAnswer.value.trim(),
+                        lang:        currentLang,
+                    }),
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                const data = await res.json();
+                aiAccepted = !!data.valid;
+                aiExplanation = data.explanation || null;
+            } catch (err) {
+                console.error('Gap answer check failed:', err);
+            }
+            if (aiAccepted) {
+                challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
+                const note = aiExplanation || `expected: ${q.answers[0]}`;
+                showFeedback('success', "Correct! 🎉", note, q.answers[0]);
+                btnChallengeNext.classList.remove('d-none');
+                btnChallengeNext.focus();
+            } else {
+                const correctAnswers = q.answers.join(" OR ");
+                const note = aiExplanation ? `${aiExplanation} (expected: ${correctAnswers})` : `The correct answer was: ${correctAnswers}`;
+                showFeedback('danger', "Incorrect 😔", note, q.answers[0]);
+                btnChallengeRepeat.classList.remove('d-none');
+                btnChallengeRepeat.focus();
+            }
         } else {
             const correctAnswers = q.answers.join(" OR ");
             showFeedback('danger', "Incorrect 😔", `The correct answer was: ${correctAnswers}`, q.answers[0]);

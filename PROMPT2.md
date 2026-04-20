@@ -2,7 +2,7 @@
 
  - new admin menu point: generate questions
  - user can then enter a topic
- - backend will contact openai api using model gpt-5.4-nano
+ - backend will contact openai api using model gpt-5.4-mini
  - secret is stored in game_config.php
  - it will then contact the openai backend and get 5 questions and answers
  - the user can then select which of these sets he wants to add

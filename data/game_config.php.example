@@ -36,4 +36,7 @@ return [
 
     // OpenAI API key for AI-generated questions (leave empty to disable)
     'openai_api_key' => '',
+
+    // OpenAI model to use for AI-generated questions (fallback: gpt-4.1-mini)
+    'openai_model' => 'gpt-4.1-mini',
 ];

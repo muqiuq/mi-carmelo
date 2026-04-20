@@ -14,8 +14,8 @@ if (!isset($_SESSION['user_id'])) {
  * Ask OpenAI to produce one fill-in-the-gap sentence using the given vocabulary words.
  * Returns ['sentence' => '...', 'answer' => 'word'] or null on failure.
  */
-function generateGapQuestion(array $words, string $lang, string $api_key): ?array {
-    if (empty($words) || empty($api_key)) return null;
+function generateGapQuestion(array $words, string $lang, string $api_key, string $model = 'gpt-4.1-mini'): array {
+    if (empty($words) || empty($api_key)) return ['valid' => false, 'error' => 'Missing words or API key'];
 
     // Use at most 5 words, prefer variety
     $pool = array_slice($words, 0, 5);
@@ -44,19 +44,24 @@ function generateGapQuestion(array $words, string $lang, string $api_key): ?arra
             'Authorization: Bearer ' . $api_key,
         ],
         CURLOPT_POSTFIELDS => json_encode([
-            'model'                  => 'gpt-5.4-nano',
+            'model'                  => $model,
             'messages'               => [
                 ['role' => 'system', 'content' => $system],
                 ['role' => 'user',   'content' => $user],
             ],
             'temperature'            => 0.7,
-            'max_completion_tokens'  => 100,
+            'max_completion_tokens'  => 200,
         ])];
     curl_setopt_array($ch, $request_body);
     $response  = curl_exec($ch);
+    $curl_error = curl_error($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-    if ($http_code !== 200 || !$response) return null;
+    if (!$response || $curl_error) return ['valid' => false, 'error' => 'cURL error: ' . ($curl_error ?: 'empty response')];
+    if ($http_code !== 200) {
+        $api_err = json_decode($response, true);
+        return ['valid' => false, 'error' => 'OpenAI API error ' . $http_code . ': ' . ($api_err['error']['message'] ?? $response)];
+    }
 
     $result  = json_decode($response, true);
     $content = trim($result['choices'][0]['message']['content'] ?? '');
@@ -66,17 +71,15 @@ function generateGapQuestion(array $words, string $lang, string $api_key): ?arra
     $content = preg_replace('/\s*```$/',           '', $content);
 
     $parsed = json_decode($content, true);
-    if (!isset($parsed['sentence'], $parsed['answer'])) return null;
+    if (!isset($parsed['sentence'], $parsed['answer'])) return ['valid' => false, 'error' => 'Could not parse OpenAI response as JSON with sentence/answer', 'raw' => $content];
 
     $sentence = trim($parsed['sentence']);
     $answer   = trim($parsed['answer']);
-    
 
-    $valid = true;
-    if ($sentence === '' || $answer === '')  $valid = false;
-    if (strlen($sentence) < 8 || strlen($sentence) > 100) $valid = false;  // shortest plausible: "Es ist ..." = 9
-    if (strpos($sentence, '...') === false) $valid = false;
-    if (str_word_count($answer) > 2)        $valid = false;
+    if ($sentence === '' || $answer === '')  return ['valid' => false, 'error' => 'Empty sentence or answer in OpenAI response'];
+    if (strlen($sentence) < 8 || strlen($sentence) > 100) return ['valid' => false, 'error' => 'Sentence length out of range: ' . strlen($sentence)];
+    if (strpos($sentence, '...') === false) return ['valid' => false, 'error' => 'Sentence does not contain "..." placeholder'];
+    if (str_word_count($answer) > 2)        return ['valid' => false, 'error' => 'Answer has too many words: ' . $answer];
 
     return [
         'id'       => 'gap_' . md5($sentence),
@@ -239,6 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     if ($type === 'feed' && count($selected_questions) > 0) {
         $game_config_gap = require __DIR__ . '/../data/game_config.php';
         $api_key_gap = $game_config_gap['openai_api_key'] ?? '';
+        $model_gap = $game_config_gap['openai_model'] ?? 'gpt-4.1-mini';
         if (!empty($api_key_gap)) {
             // Collect the answer words from the selected vocab questions as learning context
             $learned_words = [];
@@ -254,8 +258,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
             $gap_lang = getLangFromQuestionSet($user_qs_row['question_set'] ?? null);
 
             if (!empty($learned_words)) {
-                $gap_q = generateGapQuestion($learned_words, $gap_lang, $api_key_gap);
-                if ($gap_q !== null && $gap_q['valid'] === true) {
+                $gap_q = generateGapQuestion($learned_words, $gap_lang, $api_key_gap, $model_gap);
+                if ($gap_q['valid'] === true) {
                     $selected_questions[] = $gap_q;
                 }
             }
@@ -281,6 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         echo json_encode(['success' => false, 'error' => 'No OpenAI API key configured']);
         exit;
     }
+    $model = $game_config['openai_model'] ?? 'gpt-4.1-mini';
 
     $words_raw = trim($_GET['words'] ?? '');
     $lang      = trim($_GET['lang']  ?? 'de');
@@ -291,14 +296,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     }
 
     $words = array_values(array_filter(array_map('trim', explode(',', $words_raw))));
-    $gap_q = generateGapQuestion($words, $lang, $api_key);
+    $gap_q = generateGapQuestion($words, $lang, $api_key, $model);
 
-    if ($gap_q === null) {
-        echo json_encode(['success' => false, 'error' => 'generateGapQuestion returned null']);
+    if (!$gap_q['valid']) {
+        echo json_encode(['success' => false, 'error' => $gap_q['error'] ?? 'generateGapQuestion failed', 'details' => $gap_q]);
         exit;
     }
 
     echo json_encode(['success' => true, 'question' => $gap_q]);
+    exit;
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'check_gap_answer') {
+    // Check whether a user's gap answer is grammatically acceptable via OpenAI.
+    // Open to any logged-in user (session already verified above).
+    $data     = json_decode(file_get_contents('php://input'), true);
+    $sentence    = trim($data['sentence']    ?? '');
+    $user_answer = trim($data['user_answer'] ?? '');
+    $lang        = trim($data['lang']        ?? 'de');
+
+    if ($sentence === '' || $user_answer === '') {
+        echo json_encode(['valid' => false, 'error' => 'Missing params']);
+        exit;
+    }
+
+    $game_config = require __DIR__ . '/../data/game_config.php';
+    $api_key = $game_config['openai_api_key'] ?? '';
+    if (empty($api_key)) {
+        // No API key — fall back to "not valid" so the exact-match error is shown
+        echo json_encode(['valid' => false]);
+        exit;
+    }
+
+    // Replace "..." in the sentence with the user's answer and ask if it is grammatically correct
+    $filled = str_replace('...', $user_answer, $sentence);
+
+    $system = 'You are a lenient but fair grammar checker for a language learning app targeting beginners (A1-A2 level). '
+        . 'The user filled in a gap in a sentence. Evaluate whether the completed sentence is grammatically correct and makes sense in context. '
+        . 'Be generous: accept minor capitalisation differences, common synonyms, and words that fit the sentence naturally even if different from the expected answer. '
+        . 'Only reject answers that are clearly grammatically wrong or completely nonsensical in context. '
+        . 'Respond ONLY with valid JSON: {"valid": true, "explanation": "one short sentence why"} '
+        . 'or {"valid": false, "explanation": "one short sentence why not"}.';
+
+    $user_msg = "Target language: $lang\nSentence to evaluate: $filled";
+
+    $ch = curl_init('https://api.openai.com/v1/chat/completions');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $api_key,
+        ],
+        CURLOPT_POSTFIELDS => json_encode([
+            'model'                 => ($game_config['openai_model'] ?? 'gpt-4.1-mini'),
+            'messages'              => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user',   'content' => $user_msg],
+            ],
+            'temperature'           => 0,
+            'max_completion_tokens' => 200,
+        ]),
+    ]);
+
+    $response  = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if ($http_code !== 200 || !$response) {
+        echo json_encode(['valid' => false, 'http_code' => $http_code, 'error' => 'TTS API request failed']);
+        exit;
+    }
+
+    $result  = json_decode($response, true);
+    $content = trim($result['choices'][0]['message']['content'] ?? '');
+    $content = preg_replace('/^```(?:json)?\s*/i', '', $content);
+    $content = preg_replace('/\s*```$/', '', $content);
+    $parsed  = json_decode($content, true);
+
+    echo json_encode([
+        'valid'       => !empty($parsed['valid']),
+        'explanation' => $parsed['explanation'] ?? null,
+        'debug_prompt' => $user_msg,
+    ]);
     exit;
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
     $game_config = require __DIR__ . '/../data/game_config.php';
