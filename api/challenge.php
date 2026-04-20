@@ -28,6 +28,7 @@ function generateGapQuestion(array $words, string $lang, string $api_key): ?arra
         . 'CRITICAL: The sentence must contain unambiguous context clues so the learner can deduce the exact missing word from the sentence alone — not just any word from the list. '
         . 'For example, for days of the week, mention a specific activity uniquely associated with that day: "Jeden ... haben wir Fußballtraining, danach ist Wochenende." (answer: Freitag). '
         . 'A sentence like "Heute ist ..." is NOT acceptable because it could be any day. '
+        . 'If you want the user to enter a number include the number as a digit in the sentence in brackets after the dots, not as a word, to avoid ambiguity. '
         . 'The missing word does not require any change to be correct (e.g. no verb conjugation or pluralization). '
         . 'Respond ONLY with valid JSON, no markdown: {"sentence": "...", "answer": "word"}';
 

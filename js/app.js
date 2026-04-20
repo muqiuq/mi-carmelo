@@ -1723,7 +1723,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CHALLENGE ENGINE (Step 6) ---
     async function startChallenge(type) {
         challengeType = type;
-        
+
+        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive') };
+        const triggerBtn = btnMap[type] || null;
+        let originalHtml = null;
+        if (triggerBtn) {
+            originalHtml = triggerBtn.innerHTML;
+            triggerBtn.disabled = true;
+            triggerBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        }
+
         try {
             const res = await fetch(`api/challenge.php?action=generate&type=${type}`);
             const data = await res.json();
@@ -1740,6 +1749,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error('Error starting challenge:', e);
             alert('Failed to connect to server.');
+        } finally {
+            if (triggerBtn && originalHtml !== null) {
+                triggerBtn.innerHTML = originalHtml;
+                triggerBtn.disabled = false;
+            }
         }
     }
 

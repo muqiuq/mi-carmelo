@@ -85,7 +85,8 @@ test.describe('Mi Carmelo Core Game Loop', () => {
     const startPointsStr = await pointsSpan.innerText();
     const startPoints = parseInt(startPointsStr, 10) || 0;
 
-    // Hit the Pet button
+    // Hit the Pet button (wait for stats to load and button to become visible)
+    await expect(page.locator('#btn-pet')).toBeVisible({ timeout: 10000 });
     await page.click('#btn-pet');
 
     // Overlay should become active
@@ -550,7 +551,41 @@ test.describe('Mi Carmelo Core Game Loop', () => {
     // Submit the correct answer
     await page.fill('#challenge-answer', 'blau');
     await page.click('#btn-challenge-submit');
-    await expect(page.locator('#challenge-feedback-title')).toContainText('Correct'ion set
+    await expect(page.locator('#challenge-feedback-title')).toContainText('Correct');
+  });
+
+  test('Admin can assign a question set to a user and it persists', async ({ page }) => {
+    await page.goto('/');
+
+    // Login as admin
+    await page.fill('#login-username', 'queen');
+    await page.fill('#login-password', 'queen');
+    await page.click('button[type="submit"]');
+    await expect(page.locator('#view-game')).toBeVisible();
+
+    // Open admin panel
+    await page.click('#btn-admin');
+    await expect(page.locator('#view-admin')).toBeVisible();
+
+    // Navigate to Users section
+    await page.click('.btn-admin-section[data-section="admin-section-users"]');
+    await expect(page.locator('#admin-section-users')).toBeVisible();
+
+    // Create a fresh test user
+    const testUser = `testuser_qs_${Date.now()}`;
+    await page.fill('#admin-new-username', testUser);
+    await page.fill('#admin-new-password', 'testpw');
+    await page.click('#form-create-user button[type="submit"]');
+    await expect(page.locator('#admin-user-msg')).toContainText('User created!', { timeout: 5000 });
+    await expect(page.locator('#admin-users-list')).toContainText(testUser);
+
+    // Open the user detail
+    await page.locator('#admin-users-list .list-group-item', { hasText: testUser }).click();
+    await expect(page.locator('#admin-user-detail')).toBeVisible();
+
+    // Select the question set
+    const qsSelect = page.locator('#edit-user-question-set');
+    await expect(qsSelect).toBeVisible();
     await qsSelect.selectOption('questions_es.yaml');
     await expect(qsSelect).toHaveValue('questions_es.yaml');
 
