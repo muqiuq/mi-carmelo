@@ -10,6 +10,83 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+/**
+ * Ask OpenAI to produce one fill-in-the-gap sentence using the given vocabulary words.
+ * Returns ['sentence' => '...', 'answer' => 'word'] or null on failure.
+ */
+function generateGapQuestion(array $words, string $lang, string $api_key): ?array {
+    if (empty($words) || empty($api_key)) return null;
+
+    // Use at most 5 words, prefer variety
+    $pool = array_slice($words, 0, 5);
+    $words_json = json_encode($pool, JSON_UNESCAPED_UNICODE);
+
+    $system = 'You are a language learning assistant. '
+        . 'Create exactly one very simple A1-level fill-in-the-gap sentence in the target language. '
+        . 'The sentence must contain exactly one of the provided vocabulary words as the answer. '
+        . 'Replace that word with "..." in the sentence. '
+        . 'CRITICAL: The sentence must contain unambiguous context clues so the learner can deduce the exact missing word from the sentence alone — not just any word from the list. '
+        . 'For example, for days of the week, mention a specific activity uniquely associated with that day: "Jeden ... haben wir Fußballtraining, danach ist Wochenende." (answer: Freitag). '
+        . 'A sentence like "Heute ist ..." is NOT acceptable because it could be any day. '
+        . 'The missing word does not require any change to be correct (e.g. no verb conjugation or pluralization). '
+        . 'Respond ONLY with valid JSON, no markdown: {"sentence": "...", "answer": "word"}';
+
+    $user = "Target language: $lang\nVocabulary words: $words_json";
+
+    $ch = curl_init('https://api.openai.com/v1/chat/completions');
+    $request_body = [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $api_key,
+        ],
+        CURLOPT_POSTFIELDS => json_encode([
+            'model'                  => 'gpt-5.4-nano',
+            'messages'               => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user',   'content' => $user],
+            ],
+            'temperature'            => 0.7,
+            'max_completion_tokens'  => 100,
+        ])];
+    curl_setopt_array($ch, $request_body);
+    $response  = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if ($http_code !== 200 || !$response) return null;
+
+    $result  = json_decode($response, true);
+    $content = trim($result['choices'][0]['message']['content'] ?? '');
+
+    // Strip markdown fences if present
+    $content = preg_replace('/^```(?:json)?\s*/i', '', $content);
+    $content = preg_replace('/\s*```$/',           '', $content);
+
+    $parsed = json_decode($content, true);
+    if (!isset($parsed['sentence'], $parsed['answer'])) return null;
+
+    $sentence = trim($parsed['sentence']);
+    $answer   = trim($parsed['answer']);
+    
+
+    $valid = true;
+    if ($sentence === '' || $answer === '')  $valid = false;
+    if (strlen($sentence) < 8 || strlen($sentence) > 100) $valid = false;  // shortest plausible: "Es ist ..." = 9
+    if (strpos($sentence, '...') === false) $valid = false;
+    if (str_word_count($answer) > 2)        $valid = false;
+
+    return [
+        'id'       => 'gap_' . md5($sentence),
+        'valid'    => true,
+        'type'     => 'gap',
+        'question' => $sentence,
+        'answers'  => [$answer],
+    ];
+}
+
+
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
@@ -32,15 +109,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         }
     }
     if ($type === 'feed' || $type === 'revive') {
-        // Fetch user's configured limit
-        $stmt = $pdo->prepare("SELECT questions_per_challenge FROM users WHERE id = ?");
+        // Fetch user's configured limit and question set
+        $stmt = $pdo->prepare("SELECT questions_per_challenge, question_set FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
-        $limit = (int)$stmt->fetchColumn();
+        $user_row = $stmt->fetch();
+        $limit = (int)($user_row['questions_per_challenge'] ?? 3);
         if ($limit < 3) $limit = 3;
         if ($limit > 5) $limit = 5;
+        $user_question_set = $user_row['question_set'] ?? null;
+    } else {
+        $stmt = $pdo->prepare("SELECT question_set FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $user_question_set = $stmt->fetchColumn() ?: null;
     }
 
-    $all_questions = getQuestions();
+    $all_questions = getQuestions($user_question_set);
     
     if (empty($all_questions)) {
         echo json_encode(['success' => false, 'error' => 'No questions available']);
@@ -151,11 +234,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         }
     }
 
+    // For feed only: append one AI-generated fill-in-the-gap sentence question at the end
+    if ($type === 'feed' && count($selected_questions) > 0) {
+        $game_config_gap = require __DIR__ . '/../data/game_config.php';
+        $api_key_gap = $game_config_gap['openai_api_key'] ?? '';
+        if (!empty($api_key_gap)) {
+            // Collect the answer words from the selected vocab questions as learning context
+            $learned_words = [];
+            foreach ($selected_questions as $sq) {
+                if (!isset($sq['type'])) { // only vocab questions, not MC
+                    $learned_words[] = $sq['answers'][0];
+                }
+            }
+            require_once 'questions.php';
+            $user_qs_stmt = $pdo->prepare("SELECT question_set FROM users WHERE id = ?");
+            $user_qs_stmt->execute([$_SESSION['user_id']]);
+            $user_qs_row = $user_qs_stmt->fetch();
+            $gap_lang = getLangFromQuestionSet($user_qs_row['question_set'] ?? null);
+
+            if (!empty($learned_words)) {
+                $gap_q = generateGapQuestion($learned_words, $gap_lang, $api_key_gap);
+                if ($gap_q !== null && $gap_q['valid'] === true) {
+                    $selected_questions[] = $gap_q;
+                }
+            }
+        }
+    }
+
     echo json_encode([
         'success' => true,
         'questions' => $selected_questions,
         'type' => $type
     ]);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'test_gap') {
+    // Admin-only: test generateGapQuestion in isolation
+    if (empty($_SESSION['isadmin'])) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Forbidden']);
+        exit;
+    }
+
+    $game_config = require __DIR__ . '/../data/game_config.php';
+    $api_key = $game_config['openai_api_key'] ?? '';
+    if (empty($api_key)) {
+        echo json_encode(['success' => false, 'error' => 'No OpenAI API key configured']);
+        exit;
+    }
+
+    $words_raw = trim($_GET['words'] ?? '');
+    $lang      = trim($_GET['lang']  ?? 'de');
+
+    if ($words_raw === '') {
+        echo json_encode(['success' => false, 'error' => 'words param required (comma-separated)']);
+        exit;
+    }
+
+    $words = array_values(array_filter(array_map('trim', explode(',', $words_raw))));
+    $gap_q = generateGapQuestion($words, $lang, $api_key);
+
+    if ($gap_q === null) {
+        echo json_encode(['success' => false, 'error' => 'generateGapQuestion returned null']);
+        exit;
+    }
+
+    echo json_encode(['success' => true, 'question' => $gap_q]);
+    exit;
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
     $game_config = require __DIR__ . '/../data/game_config.php';
     
@@ -201,7 +344,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
             }
         }
         
-        // Knowledge Tracking
+        // Knowledge Tracking — skip for AI-generated gap questions (id starts with 'gap_')
+        if (strncmp($q_hash, 'gap_', 4) === 0) continue;
         $k_stmt = $pdo->prepare("SELECT * FROM user_knowledge WHERE user_id = ? AND question_hash = ?");
         $k_stmt->execute([$_SESSION['user_id'], $q_hash]);
         $knowledge = $k_stmt->fetch();

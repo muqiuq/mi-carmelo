@@ -181,6 +181,7 @@ if (file_exists($db_file)) {
                     
                     <div class="card shadow-sm">
                         <div class="card-body">
+                            <p id="challenge-question-label" class="text-center text-muted small mb-1 d-none"></p>
                             <h3 id="challenge-question" class="mb-4 text-center">...</h3>
                             
                             <form id="form-challenge">
@@ -264,6 +265,12 @@ if (file_exists($db_file)) {
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="edit-user-isadmin">
                                 <label class="form-check-label" for="edit-user-isadmin">Admin</label>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">Question Set</label>
+                                <select id="edit-user-question-set" class="form-select">
+                                    <option value="">Default (questions.yaml)</option>
+                                </select>
                             </div>
                             <hr>
                             <div class="mb-2">

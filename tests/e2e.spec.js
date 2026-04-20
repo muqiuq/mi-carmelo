@@ -460,6 +460,118 @@ test.describe('Mi Carmelo Core Game Loop', () => {
     await expect(page.locator('#game-buttons')).toBeVisible();
   });
 
+  test('Feed challenge API includes gap question when OpenAI is configured', async ({ page }) => {
+    await page.goto('/');
+    await page.fill('#login-username', 'carmelo');
+    await page.fill('#login-password', 'carmelo');
+    await page.click('button[type="submit"]');
+    await expect(page.locator('#view-game')).toBeVisible();
+
+    // Fetch the feed challenge directly via the API
+    const data = await page.evaluate(() =>
+      fetch('api/challenge.php?action=generate&type=feed').then(r => r.json())
+    );
+
+    expect(data.success).toBe(true);
+    expect(Array.isArray(data.questions)).toBe(true);
+    expect(data.questions.length).toBeGreaterThanOrEqual(1);
+
+    // If OpenAI is configured, the last question should be a gap question
+    const last = data.questions[data.questions.length - 1];
+    if (last.type === 'gap') {
+      expect(last.id).toMatch(/^gap_/);
+      expect(last.question).toContain('...');
+      expect(Array.isArray(last.answers)).toBe(true);
+      expect(last.answers.length).toBeGreaterThanOrEqual(1);
+      // answer must not contain '...'
+      expect(last.answers[0]).not.toContain('...');
+    }
+    // If OpenAI is not configured, gracefully no gap question — that's fine too.
+  });
+
+  test('Gap question renders Fill-in-the-gap label in feed challenge UI', async ({ page }) => {
+    await page.goto('/');
+
+    // Revive carmelo so chicken is alive and hungry
+    await page.fill('#login-username', 'queen');
+    await page.fill('#login-password', 'queen');
+    await page.click('button[type="submit"]');
+    await expect(page.locator('#view-game')).toBeVisible();
+    const listData = await page.evaluate(() => fetch('api/admin.php?action=list_users').then(r => r.json()));
+    const carmelo = listData.users.find(u => u.username === 'carmelo');
+    if (carmelo) {
+      await page.evaluate((uid) => fetch('api/admin.php?action=revive_chicken', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: uid})
+      }), carmelo.id);
+    }
+    await page.click('#btn-logout');
+
+    await page.fill('#login-username', 'carmelo');
+    await page.fill('#login-password', 'carmelo');
+    await page.click('button[type="submit"]');
+    await expect(page.locator('#view-game')).toBeVisible();
+
+    // Patch fetch to return exactly one synthetic gap question for the feed challenge
+    await page.evaluate(() => {
+      const origFetch = window.fetch;
+      window.fetch = async (url, opts) => {
+        if (typeof url === 'string' && url.includes('challenge.php?action=generate&type=feed')) {
+          return new Response(JSON.stringify({
+            success: true,
+            questions: [{
+              id: 'gap_testonly',
+              type: 'gap',
+              question: 'Der Himmel ist ...',
+              answers: ['blau'],
+            }],
+            type: 'feed'
+          }), { status: 200, headers: {'Content-Type': 'application/json'} });
+        }
+        return origFetch(url, opts);
+      };
+    });
+
+    // Start the feed challenge
+    await page.click('#btn-feed');
+    await expect(page.locator('#challenge-overlay')).toBeVisible();
+
+    // Gap label must be visible
+    await expect(page.locator('#challenge-question-label')).toBeVisible();
+    await expect(page.locator('#challenge-question-label')).toContainText('Fill in the gap');
+
+    // Text input (not MC options) must be shown
+    await expect(page.locator('#challenge-text-input')).toBeVisible();
+    await expect(page.locator('#challenge-mc-options')).toBeHidden();
+
+    // The sentence must contain '...'
+    await expect(page.locator('#challenge-question')).toContainText('...');
+
+    // Submit the correct answer
+    await page.fill('#challenge-answer', 'blau');
+    await page.click('#btn-challenge-submit');
+    await expect(page.locator('#challenge-feedback-title')).toContainText('Correct'ion set
+    await qsSelect.selectOption('questions_es.yaml');
+    await expect(qsSelect).toHaveValue('questions_es.yaml');
+
+    // Save
+    await page.click('#form-edit-user button[type="submit"]');
+    await expect(page.locator('#user-detail-msg')).toContainText('User updated!');
+
+    // Re-open the same user's detail and verify the selection persisted
+    await page.locator('#btn-user-detail-back').click();
+    await page.locator('#admin-users-list .list-group-item', { hasText: testUser }).click();
+    await expect(page.locator('#admin-user-detail')).toBeVisible();
+    await expect(page.locator('#edit-user-question-set')).toHaveValue('questions_es.yaml');
+
+    // Verify via API that the DB was updated
+    const apiData = await page.evaluate((username) => 
+      fetch('api/admin.php?action=list_users').then(r => r.json()).then(d => d.users.find(u => u.username === username)),
+      testUser
+    );
+    expect(apiData.question_set).toBe('questions_es.yaml');
+  });
+
   test('Cleanup: delete test users created during tests', async ({ page }) => {
     await page.goto('/');
 

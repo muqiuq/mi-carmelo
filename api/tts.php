@@ -16,7 +16,12 @@ if ($text === '' || mb_strlen($text) > 500) {
     exit;
 }
 
-$text_hash = hash('sha256', mb_strtolower($text));
+// Language is derived from the user's question set and passed by the frontend
+$lang_raw = trim($_GET['lang'] ?? '');
+$lang = (preg_match('/^[a-z]{2,5}$/', $lang_raw)) ? $lang_raw : 'de';
+
+// Include lang in hash so different-language versions of the same text are cached separately
+$text_hash = hash('sha256', $lang . ':' . mb_strtolower($text));
 
 // Check DB cache
 $stmt = $pdo->prepare("SELECT filename FROM audio_cache WHERE text_hash = ?");
@@ -52,9 +57,9 @@ curl_setopt_array($ch, [
     ],
     CURLOPT_POSTFIELDS => json_encode([
         'model' => 'tts-1',
-        'input' => '[lang:de] ' . $text,
+        'input' => "[lang:$lang] " . $text,
         'voice' => 'alloy',
-        'language' => 'de',
+        'language' => $lang,
         'response_format' => 'mp3',
     ]),
 ]);

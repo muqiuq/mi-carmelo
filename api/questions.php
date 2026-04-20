@@ -4,8 +4,32 @@ require_once 'config.php';
 /**
  * Basic YAML parser tailored for our questions.yaml format to minimize external dependencies.
  */
-function getQuestions() {
-    $file = __DIR__ . '/../data/questions.yaml';
+/**
+ * Extract the language code from a question set filename.
+ * Pattern: questions_XX.yaml → 'XX', questions.yaml or NULL → 'de' (default)
+ */
+function getLangFromQuestionSet(?string $question_set): string {
+    if (!empty($question_set)) {
+        $base = basename($question_set, '.yaml');
+        if (preg_match('/^questions_([a-z]{2,5})$/i', $base, $m)) {
+            return strtolower($m[1]);
+        }
+    }
+    return 'de';
+}
+
+function getQuestions(?string $question_set = null) {
+    $filename = 'questions.yaml';
+    if (!empty($question_set)) {
+        $safe = basename($question_set);
+        if (preg_match('/^[a-zA-Z0-9_\-]+\.yaml$/', $safe)) {
+            $filename = $safe;
+        }
+    }
+    $file = __DIR__ . '/../data/' . $filename;
+    if (!file_exists($file)) {
+        $file = __DIR__ . '/../data/questions.yaml';
+    }
     if (!file_exists($file)) return [];
     
     $content = file_get_contents($file);

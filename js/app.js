@@ -1,6 +1,14 @@
 // Vanilla JavaScript Application
 
 let currentUser = null;
+let currentLang = 'de'; // derived from user's question_set filename, e.g. questions_es.yaml → 'es'
+
+function langFromQuestionSet(questionSet) {
+    if (!questionSet) return 'de';
+    const base = questionSet.replace(/\.yaml$/, '');
+    const m = base.match(/^questions_([a-z]{2,5})$/i);
+    return m ? m[1].toLowerCase() : 'de';
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Mi Carmelo initialized');
@@ -243,7 +251,16 @@ document.addEventListener('DOMContentLoaded', () => {
         btnAdmin.classList.toggle('d-none', Number(currentUser.isadmin) !== 1);
         btnSleepToggle.classList.toggle('d-none', Number(currentUser.isadmin) !== 1);
         updateSleepToggleLabel();
-        
+
+        // Load question_set to derive TTS language
+        try {
+            const sRes = await fetch('api/user.php?action=get_settings');
+            const sData = await sRes.json();
+            if (sData.success) {
+                currentLang = langFromQuestionSet(sData.settings.question_set);
+            }
+        } catch (_) {}
+
         await fetchStats();
         showView(viewGame);
         initPush();
@@ -687,10 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const newPoints = parseInt(document.getElementById('edit-user-points').value, 10) || 0;
         const newDiamonds = parseInt(document.getElementById('edit-user-diamonds').value, 10) || 0;
         const newStars = parseInt(document.getElementById('edit-user-stars').value, 10) || 0;
+        const newQuestionSet = document.getElementById('edit-user-question-set').value;
         const res = await fetch('api/admin.php?action=edit_user', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({user_id: uid, username: newName, isadmin: newAdmin, password: newPwd, total_points: newPoints, diamonds: newDiamonds, stars: newStars})
+            body: JSON.stringify({user_id: uid, username: newName, isadmin: newAdmin, password: newPwd, total_points: newPoints, diamonds: newDiamonds, stars: newStars, question_set: newQuestionSet})
         });
         const d = await res.json();
         const msg = document.getElementById('user-detail-msg');
@@ -948,6 +966,25 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-user-stars').value = user.stars || 0;
         document.getElementById('user-detail-msg').textContent = '';
 
+        // Populate question set selector
+        const qsSelect = document.getElementById('edit-user-question-set');
+        qsSelect.innerHTML = '<option value="">Default (questions.yaml)</option>';
+        try {
+            const qsRes = await fetch('api/admin.php?action=list_question_files');
+            const qsData = await qsRes.json();
+            if (qsData.success) {
+                qsData.files.forEach(f => {
+                    if (f !== 'questions.yaml') {
+                        const opt = document.createElement('option');
+                        opt.value = f;
+                        opt.textContent = f;
+                        qsSelect.appendChild(opt);
+                    }
+                });
+            }
+        } catch (_) {}
+        qsSelect.value = user.question_set || '';
+
         // Load stats
         const statsDiv = document.getElementById('user-detail-stats');
         statsDiv.innerHTML = '<div class="text-muted small">Loading stats...</div>';
@@ -1184,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 playBtn.addEventListener('click', async () => {
                     playBtn.disabled = true;
                     try {
-                        const r = await fetch('api/tts.php?text=' + encodeURIComponent(f.text));
+                        const r = await fetch('api/tts.php?text=' + encodeURIComponent(f.text) + '&lang=' + encodeURIComponent(currentLang));
                         if (r.ok) {
                             const blob = await r.blob();
                             const url = URL.createObjectURL(blob);
@@ -1718,6 +1755,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const textInput = document.getElementById('challenge-text-input');
         const mcOptions = document.getElementById('challenge-mc-options');
+        const qLabel   = document.getElementById('challenge-question-label');
+
+        // Question type label
+        if (q.type === 'gap') {
+            qLabel.textContent = '✏️ Fill in the gap:';
+            qLabel.classList.remove('d-none');
+        } else {
+            qLabel.textContent = '';
+            qLabel.classList.add('d-none');
+        }
 
         if (q.options && q.options.length > 0) {
             // Multiple choice mode
@@ -1842,7 +1889,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnTtsPlay.disabled = true;
         btnTtsPlay.textContent = '⏳ ...';
         try {
-            const res = await fetch('api/tts.php?text=' + encodeURIComponent(text));
+            const res = await fetch('api/tts.php?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(currentLang));
             const ct = res.headers.get('content-type') || '';
             if (!res.ok || !ct.includes('audio/')) {
                 const body = await res.text();

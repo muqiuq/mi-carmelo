@@ -1,0 +1,27 @@
+- question: "Montag?"
+  answers:
+    - "lunes"
+
+- question: "Dienstag?"
+  answers:
+    - "martes"
+
+- question: "Mittwoch?"
+  answers:
+    - "miércoles"
+
+- question: "Donnerstag?"
+  answers:
+    - "jueves"
+
+- question: "Freitag?"
+  answers:
+    - "viernes"
+
+- question: "Samstag?"
+  answers:
+    - "sábado"
+
+- question: "Sonntag?"
+  answers:
+    - "domingo"

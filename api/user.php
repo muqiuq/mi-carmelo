@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($action === 'get_settings') {
-        $stmt = $pdo->prepare("SELECT username, questions_per_challenge FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT username, questions_per_challenge, question_set FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
         

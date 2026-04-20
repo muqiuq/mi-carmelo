@@ -257,6 +257,13 @@ try {
     // Ignore
 }
 
+// Migration: add question_set column to users
+try {
+    $pdo->exec("ALTER TABLE users ADD COLUMN question_set TEXT DEFAULT NULL");
+} catch (PDOException $e) {
+    // Column already exists
+}
+
 // Ensure audio directory exists
 $audio_dir = __DIR__ . '/../audio';
 if (!is_dir($audio_dir)) {

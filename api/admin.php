@@ -13,7 +13,7 @@ $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($action === 'list_users') {
-        $stmt = $pdo->query("SELECT id, username, isadmin, total_points, diamonds, stars, last_fed FROM users");
+        $stmt = $pdo->query("SELECT id, username, isadmin, total_points, diamonds, stars, last_fed, question_set FROM users");
         $users = $stmt->fetchAll();
         foreach ($users as &$u) {
             $u['id'] = (int)$u['id'];
@@ -31,7 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
         require_once 'questions.php';
-        $all_questions = getQuestions();
+        $uqs_stmt = $pdo->prepare("SELECT question_set FROM users WHERE id = ?");
+        $uqs_stmt->execute([$user_id]);
+        $uqs_row = $uqs_stmt->fetch();
+        $all_questions = getQuestions($uqs_row['question_set'] ?? null);
         $q_map = [];
         foreach ($all_questions as $q) {
             $q_map[$q['id']] = $q['question'];
@@ -52,6 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         echo json_encode(['success' => true, 'knowledge' => $knowledge]);
+    } elseif ($action === 'list_question_files') {
+        $data_dir = __DIR__ . '/../data';
+        $files = glob($data_dir . '/*.yaml') ?: [];
+        $result = array_map('basename', $files);
+        sort($result);
+        echo json_encode(['success' => true, 'files' => $result]);
     } elseif ($action === 'get_yaml') {
         $file = __DIR__ . '/../data/questions.yaml';
         $content = file_exists($file) ? file_get_contents($file) : '';
@@ -145,17 +154,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
 
+        $raw_qs = $data['question_set'] ?? '';
+        $question_set = null;
+        if ($raw_qs !== '') {
+            $safe_qs = basename($raw_qs);
+            if (preg_match('/^[a-zA-Z0-9_\-]+\.yaml$/', $safe_qs)) {
+                $question_set = $safe_qs;
+            }
+        }
+
         try {
             $total_points = isset($data['total_points']) ? max(0, (int)$data['total_points']) : null;
             $diamonds = isset($data['diamonds']) ? max(0, (int)$data['diamonds']) : null;
             $stars = isset($data['stars']) ? max(0, (int)$data['stars']) : null;
 
             if ($password !== '') {
-                $stmt = $pdo->prepare("UPDATE users SET username = ?, password_hash = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars) WHERE id = ?");
-                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $isadmin, $total_points, $diamonds, $stars, $user_id]);
+                $stmt = $pdo->prepare("UPDATE users SET username = ?, password_hash = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars), question_set = ? WHERE id = ?");
+                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $isadmin, $total_points, $diamonds, $stars, $question_set, $user_id]);
             } else {
-                $stmt = $pdo->prepare("UPDATE users SET username = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars) WHERE id = ?");
-                $stmt->execute([$username, $isadmin, $total_points, $diamonds, $stars, $user_id]);
+                $stmt = $pdo->prepare("UPDATE users SET username = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars), question_set = ? WHERE id = ?");
+                $stmt->execute([$username, $isadmin, $total_points, $diamonds, $stars, $question_set, $user_id]);
             }
             echo json_encode(['success' => true]);
         } catch(PDOException $e) {
@@ -168,7 +186,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
         require_once 'questions.php';
-        $all_questions = getQuestions();
+        $uqs_stmt2 = $pdo->prepare("SELECT question_set FROM users WHERE id = ?");
+        $uqs_stmt2->execute([$user_id]);
+        $uqs_row2 = $uqs_stmt2->fetch();
+        $all_questions = getQuestions($uqs_row2['question_set'] ?? null);
         $valid_hashes = [];
         foreach ($all_questions as $q) {
             $valid_hashes[] = $q['id'];
