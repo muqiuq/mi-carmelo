@@ -96,6 +96,7 @@ try {
         $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
         $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
         $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
+        $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
     }
 
 } catch (PDOException $e) {
@@ -183,6 +184,7 @@ try {
     $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
     $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
     $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
+    $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
 
     // Enforce latest pricing/currency/names for existing items
     $shopUpdate = $pdo->prepare("UPDATE shop_items SET name = ?, description = ?, currency = ?, price = ? WHERE code = ?");
@@ -195,6 +197,7 @@ try {
     $mqUpdate->execute([2, 'picture_frame']);
     $shopUpdate->execute(['Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 'picture_frame']);
     $shopUpdate->execute(['Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 'chicken_house']);
+    $shopUpdate->execute(['Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 'diamond_buy']);
 } catch (PDOException $e) {
     // Ignore migration errors to keep startup resilient
 }

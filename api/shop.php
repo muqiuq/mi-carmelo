@@ -215,6 +215,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
 
             $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, 'picture_frame', ?)");
             $insDecor->execute([$_SESSION['user_id'], $freeSlot]);
+        } elseif ($item['code'] === 'diamond_buy') {
+            // Grant +1 diamond; convert to star if a new threshold is crossed
+            $game_config = require __DIR__ . '/../data/game_config.php';
+            $diamondsForStar = max(1, (int)($game_config['diamonds_for_star'] ?? 10));
+            $oldDiamonds = (int)$user['diamonds'];
+            $newDiamonds = $oldDiamonds + 1;
+            $newStars    = (int)$user['stars'];
+            $starsEarned = (int)floor($newDiamonds / $diamondsForStar) - (int)floor($oldDiamonds / $diamondsForStar);
+            if ($starsEarned > 0) {
+                $newStars    += $starsEarned;
+                $newDiamonds -= $starsEarned * $diamondsForStar;
+            }
+            $updDiamond = $pdo->prepare("UPDATE users SET diamonds = ?, stars = ? WHERE id = ?");
+            $updDiamond->execute([$newDiamonds, $newStars, $_SESSION['user_id']]);
         } else {
             $nextSlotStmt = $pdo->prepare("SELECT COALESCE(MAX(slot_index), -1) + 1 FROM user_decorations WHERE user_id = ? AND item_code = ?");
             $nextSlotStmt->execute([$_SESSION['user_id'], $item['code']]);
@@ -224,7 +238,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
         }
 
         $pdo->commit();
-        echo json_encode(['success' => true]);
+
+        $earnedStar = isset($newStars) && $newStars > (int)$user['stars'];
+        echo json_encode(['success' => true, 'earned_star' => $earnedStar]);
         exit;
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) {

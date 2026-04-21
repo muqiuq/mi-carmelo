@@ -601,7 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'col-12 col-md-6';
                 const lockedClass = item.can_afford ? '' : ' shop-item-locked';
-                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'chicken_house';
+                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'chicken_house' || item.code === 'diamond_buy';
                 const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
 
                 card.innerHTML = `
@@ -635,7 +635,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     await fetchStats();
                     showView(viewGame);
-                    spawnHearts();
+                    if (buyData.earned_star) {
+                        triggerAnimation('anim-star', 3125);
+                    } else {
+                        spawnHearts();
+                    }
                 });
             });
         } catch (e) {
