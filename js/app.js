@@ -309,6 +309,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderFrames(stats.frame_slots);
         }
         renderBed(stats.bed_owned);
+        // Apply body color
+        const petArea = document.getElementById('pet-area');
+        const colorClasses = ['pet-color-pink','pet-color-blue','pet-color-green','pet-color-purple','pet-color-white'];
+        colorClasses.forEach(c => petArea && petArea.classList.remove(c));
+        if (stats.pet_color) {
+            const cls = stats.pet_color.replace('color_', 'pet-color-');
+            petArea && petArea.classList.add(cls);
+        }
         lastStats = stats;
         if (stats.fiesta_cooldown > 0) {
             startFiestaCooldown(stats.fiesta_cooldown);
@@ -334,7 +342,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Sleep takes priority over hungry/idle when bed owned and night-time
         const wantSleep = !!stats.bed_owned && shouldSleep();
-        const petArea = document.getElementById('pet-area');
         if (wantSleep) {
             speechBubble.classList.add('d-none');
             if (!isSleeping) {
@@ -601,7 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'col-12 col-md-6';
                 const lockedClass = item.can_afford ? '' : ' shop-item-locked';
-                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'chicken_house' || item.code === 'diamond_buy';
+                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'chicken_house' || item.code === 'diamond_buy' || item.code === 'diamond_buy_3' || item.code.startsWith('color_');
                 const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
 
                 card.innerHTML = `
@@ -637,6 +644,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     showView(viewGame);
                     if (buyData.earned_star) {
                         triggerAnimation('anim-star', 3125);
+                    } else if (buyData.pet_color) {
+                        spawnHearts();
                     } else {
                         spawnHearts();
                     }

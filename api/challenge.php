@@ -471,7 +471,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
 
     // Build full stats including hunger/death state for the frontend
     $game_config = require __DIR__ . '/../data/game_config.php';
-    $stmt2 = $pdo->prepare("SELECT last_fed, is_dead FROM users WHERE id = ?");
+    $stmt2 = $pdo->prepare("SELECT last_fed, is_dead, pet_color FROM users WHERE id = ?");
     $stmt2->execute([$_SESSION['user_id']]);
     $fresh = $stmt2->fetch();
 
@@ -509,6 +509,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     $response_stats['lamp_slots']   = $lamp_slots;
     $response_stats['frame_slots']  = $frame_slots;
     $response_stats['bed_owned']    = $bed_owned;
+    $response_stats['pet_color']    = $fresh['pet_color'] ?? null;
 
     // Fiesta cooldown for response
     $fiestaCd = $game_config['fiesta_cooldown_seconds'] ?? 300;

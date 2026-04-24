@@ -229,6 +229,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
             }
             $updDiamond = $pdo->prepare("UPDATE users SET diamonds = ?, stars = ? WHERE id = ?");
             $updDiamond->execute([$newDiamonds, $newStars, $_SESSION['user_id']]);
+        } elseif ($item['code'] === 'diamond_buy_3') {
+            // Grant +3 diamonds; convert to stars if thresholds are crossed
+            $game_config = require __DIR__ . '/../data/game_config.php';
+            $diamondsForStar = max(1, (int)($game_config['diamonds_for_star'] ?? 10));
+            $oldDiamonds = (int)$user['diamonds'];
+            $newDiamonds = $oldDiamonds + 3;
+            $newStars    = (int)$user['stars'];
+            $starsEarned = (int)floor($newDiamonds / $diamondsForStar) - (int)floor($oldDiamonds / $diamondsForStar);
+            if ($starsEarned > 0) {
+                $newStars    += $starsEarned;
+                $newDiamonds -= $starsEarned * $diamondsForStar;
+            }
+            $updDiamond = $pdo->prepare("UPDATE users SET diamonds = ?, stars = ? WHERE id = ?");
+            $updDiamond->execute([$newDiamonds, $newStars, $_SESSION['user_id']]);
+        } elseif (strncmp($item['code'], 'color_', 6) === 0) {
+            // Store the chosen color in the users table
+            $validColors = ['color_pink', 'color_blue', 'color_green', 'color_purple', 'color_white', 'color_default'];
+            if (!in_array($item['code'], $validColors, true)) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'error' => 'Ungültige Farbe']);
+                exit;
+            }
+            // color_default resets to original (NULL)
+            $newColorValue = $item['code'] === 'color_default' ? null : $item['code'];
+            $colorUpd = $pdo->prepare("UPDATE users SET pet_color = ? WHERE id = ?");
+            $colorUpd->execute([$newColorValue, $_SESSION['user_id']]);
+            $item['code'] = $item['code']; // keep for pet_color response below
         } else {
             $nextSlotStmt = $pdo->prepare("SELECT COALESCE(MAX(slot_index), -1) + 1 FROM user_decorations WHERE user_id = ? AND item_code = ?");
             $nextSlotStmt->execute([$_SESSION['user_id'], $item['code']]);
@@ -240,7 +267,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
         $pdo->commit();
 
         $earnedStar = isset($newStars) && $newStars > (int)$user['stars'];
-        echo json_encode(['success' => true, 'earned_star' => $earnedStar]);
+        $newColor = isset($colorUpd) ? ($newColorValue ?? null) : null;
+        echo json_encode(['success' => true, 'earned_star' => $earnedStar, 'pet_color' => $newColor]);
         exit;
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) {

@@ -97,6 +97,13 @@ try {
         $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
         $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
         $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
+        $shopSeed->execute(['diamond_buy_3', '3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 9999, 5]);
+        $shopSeed->execute(['color_pink',   'Farbe: Rosa',  'Färbe Carmelo rosa.',   'points', 50, 9999, 6]);
+        $shopSeed->execute(['color_blue',   'Farbe: Blau',  'Färbe Carmelo blau.',   'points', 50, 9999, 7]);
+        $shopSeed->execute(['color_green',  'Farbe: Grün', 'Färbe Carmelo grün.',  'points', 50, 9999, 8]);
+        $shopSeed->execute(['color_purple', 'Farbe: Lila',  'Färbe Carmelo lila.',   'points', 50, 9999, 9]);
+        $shopSeed->execute(['color_white',  'Farbe: Hellgrau',  'Färbe Carmelo hellgrau.',  'points', 50, 9999, 10]);
+        $shopSeed->execute(['color_default', 'Originalfarbe', 'Carmelo wieder in Goldgelb.', 'points', 10, 9999, 11]);
     }
 
 } catch (PDOException $e) {
@@ -185,9 +192,16 @@ try {
     $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
     $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
     $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
+    $shopSeed->execute(['diamond_buy_3', '3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 9999, 5]);
+    $shopSeed->execute(['color_pink',   'Farbe: Rosa',  'Färbe Carmelo rosa.',   'points', 50, 9999, 6]);
+    $shopSeed->execute(['color_blue',   'Farbe: Blau',  'Färbe Carmelo blau.',   'points', 50, 9999, 7]);
+    $shopSeed->execute(['color_green',  'Farbe: Grün', 'Färbe Carmelo grün.',  'points', 50, 9999, 8]);
+    $shopSeed->execute(['color_purple', 'Farbe: Lila',  'Färbe Carmelo lila.',   'points', 50, 9999, 9]);
+    $shopSeed->execute(['color_white',  'Farbe: Hellgrau',  'Färbe Carmelo hellgrau.',  'points', 50, 9999, 10]);
+    $shopSeed->execute(['color_default', 'Originalfarbe', 'Carmelo wieder in Goldgelb.', 'points', 10, 9999, 11]);
 
     // Enforce latest pricing/currency/names for existing items
-    $shopUpdate = $pdo->prepare("UPDATE shop_items SET name = ?, description = ?, currency = ?, price = ? WHERE code = ?");
+    $shopUpdate = $pdo->prepare("UPDATE shop_items SET name = ?, description = ?, currency = ?, price = ? WHERE code = ?");;
     $shopUpdate->execute(['Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 'flower_wall']);
     $shopUpdate->execute(['Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 'small_lamp']);
 
@@ -198,6 +212,13 @@ try {
     $shopUpdate->execute(['Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 'picture_frame']);
     $shopUpdate->execute(['Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 'chicken_house']);
     $shopUpdate->execute(['Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 'diamond_buy']);
+    $shopUpdate->execute(['3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 'diamond_buy_3']);
+    $shopUpdate->execute(['Farbe: Rosa',  'Färbe Carmelo rosa.',  'points', 50, 'color_pink']);
+    $shopUpdate->execute(['Farbe: Blau',  'Färbe Carmelo blau.',  'points', 50, 'color_blue']);
+    $shopUpdate->execute(['Farbe: Grün', 'Färbe Carmelo grün.', 'points', 50, 'color_green']);
+    $shopUpdate->execute(['Farbe: Lila',  'Färbe Carmelo lila.',  'points', 50, 'color_purple']);
+    $shopUpdate->execute(['Farbe: Hellgrau',  'Färbe Carmelo hellgrau.',  'points', 50, 'color_white']);
+    $shopUpdate->execute(['Originalfarbe', 'Carmelo wieder in Goldgelb.', 'points', 10, 'color_default']);
 } catch (PDOException $e) {
     // Ignore migration errors to keep startup resilient
 }
@@ -263,6 +284,13 @@ try {
 // Migration: add question_set column to users
 try {
     $pdo->exec("ALTER TABLE users ADD COLUMN question_set TEXT DEFAULT NULL");
+} catch (PDOException $e) {
+    // Column already exists
+}
+
+// Migration: add pet_color column to users
+try {
+    $pdo->exec("ALTER TABLE users ADD COLUMN pet_color TEXT DEFAULT NULL");
 } catch (PDOException $e) {
     // Column already exists
 }

@@ -334,6 +334,18 @@ body {
     border-radius: 50%;
 }
 
+/* -- Body color variants -------------------------------- */
+#pet-area.pet-color-pink  .chicken-body,
+#pet-area.pet-color-pink  .chicken-head { background: #ffb6c1; }
+#pet-area.pet-color-blue  .chicken-body,
+#pet-area.pet-color-blue  .chicken-head { background: #87ceeb; }
+#pet-area.pet-color-green .chicken-body,
+#pet-area.pet-color-green .chicken-head { background: #90ee90; }
+#pet-area.pet-color-purple .chicken-body,
+#pet-area.pet-color-purple .chicken-head { background: #9b59b6; }
+#pet-area.pet-color-white .chicken-body,
+#pet-area.pet-color-white .chicken-head { background: #d3d3d3; }
+
 /* -- Beak wrapper (two triangles) ----------------------- */
 .chicken-beak {
     position: absolute;
