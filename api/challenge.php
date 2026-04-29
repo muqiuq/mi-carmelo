@@ -30,6 +30,7 @@ function generateGapQuestion(array $words, string $lang, string $api_key, string
         . 'A sentence like "Heute ist ..." is NOT acceptable because it could be any day. '
         . 'If you want the user to enter a number include the number as a digit in the sentence in brackets after the dots, not as a word, to avoid ambiguity. '
         . 'The missing word does not require any change to be correct (e.g. no verb conjugation or pluralization). '
+        . 'Very important: Your sentence MUST be grammatically correct with the selected answer.'
         . 'Respond ONLY with valid JSON, no markdown: {"sentence": "...", "answer": "word"}';
 
     $user = "Target language: $lang\nVocabulary words: $words_json";
@@ -330,9 +331,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     $filled = str_replace('...', $user_answer, $sentence);
 
     $system = 'You are a lenient but fair grammar checker for a language learning app targeting beginners (A1-A2 level). '
-        . 'The user filled in a gap in a sentence. Evaluate whether the completed sentence is grammatically correct and makes sense in context. '
+        . 'The user filled in a gap in a sentence. Evaluate whether the completed sentence is mostly grammatically correct and makes some sense in context. '
         . 'Be generous: accept minor capitalisation differences, common synonyms, and words that fit the sentence naturally even if different from the expected answer. '
         . 'Only reject answers that are clearly grammatically wrong or completely nonsensical in context. '
+        . 'Accept funny responses if they are grammatically correct and somewhat fit the context.'
         . 'Respond ONLY with valid JSON: {"valid": true, "explanation": "one short sentence why"} '
         . 'or {"valid": false, "explanation": "one short sentence why not"}.';
 

@@ -42,9 +42,10 @@ if ($action === 'generate') {
     $system_prompt = "You are a language learning assistant for a Spanish-to-German vocabulary app. "
         . "The learner is at A1 beginner level. "
         . "Generate exactly 5 vocabulary question-answer pairs on the given topic. "
-        . "Each question is a Spanish word or short phrase (max 30 characters). "
+        . "Each question is a Spanish word or short phrase (max 40 characters). "
         . "Each question should have 1-3 German answer alternatives (synonyms or with/without article). "
         . "Each answer must be max 3 words and max 30 characters. "
+        . "A answer can also be a sentence if requested so by the topic, but it must not exceed 40 characters."
         . "Respond ONLY with valid JSON, no markdown, no explanation. "
         . "Format: [{\"question\": \"Spanish phrase\", \"answers\": [\"German answer 1\", \"German answer 2\"]}]";
 
