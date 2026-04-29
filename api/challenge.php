@@ -335,6 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         . 'Be generous: accept minor capitalisation differences, common synonyms, and words that fit the sentence naturally even if different from the expected answer. '
         . 'Only reject answers that are clearly grammatically wrong or completely nonsensical in context. '
         . 'Accept funny responses if they are grammatically correct and somewhat fit the context.'
+        . 'If you accepted the answer, but it has grammatical errors, give an explanation of what the learner did wrong, so they can learn from it. '
         . 'Respond ONLY with valid JSON: {"valid": true, "explanation": "one short sentence why"} '
         . 'or {"valid": false, "explanation": "one short sentence why not"}.';
 
