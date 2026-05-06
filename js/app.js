@@ -1734,10 +1734,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- CHALLENGE ENGINE (Step 6) ---
+    function renderClockSvg(hours, minutes) {
+        const h = ((hours % 12) + (minutes / 60));
+        const hourAngle = (h * 30) - 90;       // 360/12 per hour
+        const minAngle  = (minutes * 6) - 90;  // 360/60 per minute
+        const cx = 100, cy = 100, r = 90;
+        const polar = (deg, len) => {
+            const rad = deg * Math.PI / 180;
+            return [cx + Math.cos(rad) * len, cy + Math.sin(rad) * len];
+        };
+        const [hx, hy] = polar(hourAngle, 50);
+        const [mx, my] = polar(minAngle, 75);
+
+        // Hour-tick marks 1..12
+        let ticks = '';
+        for (let i = 1; i <= 12; i++) {
+            const ang = (i * 30) - 90;
+            const [x1, y1] = polar(ang, r - 8);
+            const [x2, y2] = polar(ang, r);
+            ticks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#333" stroke-width="3" stroke-linecap="round"/>`;
+            // Numbers
+            const [nx, ny] = polar(ang, r - 22);
+            ticks += `<text x="${nx.toFixed(1)}" y="${(ny + 5).toFixed(1)}" text-anchor="middle" font-size="16" font-family="sans-serif" fill="#333">${i}</text>`;
+        }
+        return `
+            <svg viewBox="0 0 200 200" width="180" height="180" xmlns="http://www.w3.org/2000/svg" aria-label="analog clock">
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#333" stroke-width="4"/>
+                ${ticks}
+                <line x1="${cx}" y1="${cy}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+                <line x1="${cx}" y1="${cy}" x2="${mx.toFixed(1)}" y2="${my.toFixed(1)}" stroke="#000" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="${cx}" cy="${cy}" r="5" fill="#000"/>
+            </svg>
+        `;
+    }
+
     async function startChallenge(type) {
         challengeType = type;
 
-        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive') };
+        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive'), clock: document.getElementById('btn-clock') };
         const triggerBtn = btnMap[type] || null;
         let originalHtml = null;
         if (triggerBtn) {
@@ -1783,14 +1817,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const textInput = document.getElementById('challenge-text-input');
         const mcOptions = document.getElementById('challenge-mc-options');
         const qLabel   = document.getElementById('challenge-question-label');
+        const clockFace = document.getElementById('challenge-clock-face');
 
         // Question type label
         if (q.type === 'gap') {
             qLabel.textContent = '✏️ Completa la frase:';
             qLabel.classList.remove('d-none');
+        } else if (q.type === 'clock') {
+            qLabel.textContent = '🕐';
+            qLabel.classList.remove('d-none');
         } else {
             qLabel.textContent = '';
             qLabel.classList.add('d-none');
+        }
+
+        // Clock face SVG
+        if (q.type === 'clock' && clockFace) {
+            clockFace.innerHTML = renderClockSvg(q.hours, q.minutes);
+            clockFace.classList.remove('d-none');
+        } else if (clockFace) {
+            clockFace.innerHTML = '';
+            clockFace.classList.add('d-none');
         }
 
         if (q.options && q.options.length > 0) {
@@ -1888,7 +1935,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const userAnswer = inputChallengeAnswer.value.trim().toLowerCase();
         
         // Validation logic for multiple generic answers
-        const isCorrect = q.answers.some(a => a.trim().toLowerCase() === userAnswer);
+        let isCorrect;
+        if (q.type === 'clock') {
+            const norm = (s) => String(s).toLowerCase()
+                .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+                .replace(/[^\p{L}\s]/gu, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const userN = norm(inputChallengeAnswer.value);
+            isCorrect = userN.length > 0 && q.answers.some(a => norm(a) === userN);
+        } else {
+            isCorrect = q.answers.some(a => a.trim().toLowerCase() === userAnswer);
+        }
         
         currentQuestionAttempts++;
         
@@ -2074,6 +2132,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnFeed.disabled) return;
         startChallenge('feed');
     });
+
+    const btnClock = document.getElementById('btn-clock');
+    if (btnClock) {
+        btnClock.addEventListener('click', () => {
+            if (btnClock.disabled) return;
+            startChallenge('clock');
+        });
+    }
 
     // --- FIESTA ---
     const btnFiesta = document.getElementById('btn-fiesta');

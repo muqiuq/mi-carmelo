@@ -146,6 +146,7 @@ if (file_exists($db_file)) {
                 <div class="mt-4" id="game-buttons">
                     <button id="btn-pet" class="btn btn-info btn-lg m-2">Acariciar</button>
                     <button id="btn-feed" class="btn btn-warning btn-lg m-2">Alimentar</button>
+                    <button id="btn-clock" class="btn btn-secondary btn-lg m-2" title="Clock challenge">🕐</button>
                     <button id="btn-fiesta" class="btn btn-danger btn-lg m-2 d-none">🎉 Fiesta</button>
                     <button id="btn-shop" class="btn btn-outline-primary btn-lg m-2">Shop</button>
                     <div id="feed-countdown" class="text-muted small mt-1 d-none"></div>
@@ -168,7 +169,7 @@ if (file_exists($db_file)) {
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>
-                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.6</div>
+                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.8</div>
             </main>
 
             <!-- CHALLENGE OVERLAY -->
@@ -182,6 +183,7 @@ if (file_exists($db_file)) {
                     <div class="card shadow-sm">
                         <div class="card-body">
                             <p id="challenge-question-label" class="text-center text-muted small mb-1 d-none"></p>
+                            <div id="challenge-clock-face" class="text-center mb-3 d-none"></div>
                             <h3 id="challenge-question" class="mb-4 text-center">...</h3>
                             
                             <form id="form-challenge">

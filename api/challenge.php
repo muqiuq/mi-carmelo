@@ -91,12 +91,160 @@ function generateGapQuestion(array $words, string $lang, string $api_key, string
     ];
 }
 
+/**
+ * Build the German word form(s) for a given hour/minute on an analog clock.
+ * Hour is 1..12, minute is one of 0,5,10,15,20,25,30,35,40,45,50,55.
+ * Returns an array of accepted spellings (lowercase, no umlauts normalised).
+ */
+function clockGermanWords(int $h, int $m): array {
+    $hourWords = ['', 'eins', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf'];
+    $hourWordEin = ['', 'ein', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwölf'];
+    $hNext = $h % 12 + 1;
+    $hour      = $hourWords[$h];
+    $hourEin   = $hourWordEin[$h]; // "ein Uhr" not "eins Uhr"
+    $next      = $hourWords[$hNext];
+
+    $minWords = [
+        5  => 'fünf',
+        10 => 'zehn',
+        15 => 'viertel',
+        20 => 'zwanzig',
+        25 => 'fünfundzwanzig',
+        35 => 'fünfunddreißig',
+        40 => 'vierzig',
+        50 => 'fünfzig',
+        55 => 'fünfundfünfzig',
+    ];
+
+    $forms = [];
+    if ($m === 0) {
+        $forms[] = $hourEin . ' uhr';
+        $forms[] = $hour;
+    } elseif ($m === 15) {
+        $forms[] = 'viertel nach ' . $hour;
+    } elseif ($m === 30) {
+        $forms[] = 'halb ' . $next;
+    } elseif ($m === 45) {
+        $forms[] = 'viertel vor ' . $next;
+    } elseif ($m === 5 || $m === 10 || $m === 20) {
+        $forms[] = $minWords[$m] . ' nach ' . $hour;
+    } elseif ($m === 25) {
+        $forms[] = 'fünf vor halb ' . $next;
+        $forms[] = 'fünfundzwanzig nach ' . $hour;
+    } elseif ($m === 35) {
+        $forms[] = 'fünf nach halb ' . $next;
+        $forms[] = 'fünfundzwanzig vor ' . $next;
+    } elseif ($m === 40 || $m === 50 || $m === 55) {
+        $minBefore = 60 - $m;
+        $minBeforeWord = ['', '', '', '', '', 'fünf', '', '', '', '', 'zehn'];
+        $word = $m === 40 ? 'zwanzig' : ($m === 50 ? 'zehn' : 'fünf');
+        $forms[] = $word . ' vor ' . $next;
+    }
+
+    return $forms;
+}
+
+/**
+ * Spanish word form(s) for a given hour/minute.
+ */
+function clockSpanishWords(int $h, int $m): array {
+    $hourWords = ['', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez', 'once', 'doce'];
+    $hNext = $h % 12 + 1;
+    $hour = $hourWords[$h];
+    $next = $hourWords[$hNext];
+    $art  = $h === 1 ? 'la' : 'las';
+    $artNext = $hNext === 1 ? 'la' : 'las';
+
+    $forms = [];
+    if ($m === 0) {
+        $forms[] = $art . ' ' . $hour;
+        $forms[] = $art . ' ' . $hour . ' en punto';
+    } elseif ($m === 15) {
+        $forms[] = $art . ' ' . $hour . ' y cuarto';
+        $forms[] = $art . ' ' . $hour . ' y quince';
+    } elseif ($m === 30) {
+        $forms[] = $art . ' ' . $hour . ' y media';
+        $forms[] = $art . ' ' . $hour . ' y treinta';
+    } elseif ($m === 45) {
+        $forms[] = $artNext . ' ' . $next . ' menos cuarto';
+        $forms[] = $artNext . ' ' . $next . ' menos quince';
+    } elseif ($m < 35) {
+        $minWord = [5=>'cinco', 10=>'diez', 20=>'veinte', 25=>'veinticinco'][$m] ?? (string)$m;
+        $forms[] = $art . ' ' . $hour . ' y ' . $minWord;
+    } else {
+        $rem = 60 - $m;
+        $minWord = [25=>'veinticinco', 20=>'veinte', 10=>'diez', 5=>'cinco'][$rem] ?? (string)$rem;
+        $forms[] = $artNext . ' ' . $next . ' menos ' . $minWord;
+    }
+    return $forms;
+}
+
+/**
+ * Normalise a clock answer string for comparison: lowercase, strip punctuation,
+ * collapse whitespace, replace German umlauts.
+ */
+function normaliseClockAnswer(string $s): string {
+    $s = mb_strtolower(trim($s));
+    $s = strtr($s, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']);
+    // unify number separators
+    $s = preg_replace('/[.:hH]/u', ' ', $s);
+    $s = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $s);
+    $s = preg_replace('/\s+/u', ' ', $s);
+    return trim($s);
+}
+
+/**
+ * Build a single random clock question.
+ */
+function generateClockQuestion(string $lang = 'de'): array {
+    $h = random_int(1, 12);
+    $minuteOptions = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+    $m = $minuteOptions[array_rand($minuteOptions)];
+
+    if ($lang === 'es') {
+        $words = clockSpanishWords($h, $m);
+        $label = '🕐 ¿Qué hora es? (en palabras)';
+    } else {
+        $words = clockGermanWords($h, $m);
+        $label = '🕐 Wie spät ist es? (in Worten)';
+    }
+
+    $answers = array_values(array_unique($words));
+
+    return [
+        'id'       => 'clock_' . $h . '_' . $m . '_' . bin2hex(random_bytes(3)),
+        'type'     => 'clock',
+        'question' => $label,
+        'hours'    => $h,
+        'minutes'  => $m,
+        'answers'  => $answers,
+    ];
+}
+
 
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
-    $type = $_GET['type'] ?? 'pet'; // 'pet', 'feed', or 'revive'
-    
+    $type = $_GET['type'] ?? 'pet'; // 'pet', 'feed', 'revive', 'clock', or 'fiesta'
+
+    // Clock challenge: 3 random analog-clock questions, no vocabulary lookup needed
+    if ($type === 'clock') {
+        $stmt = $pdo->prepare("SELECT question_set FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $clock_qs = $stmt->fetchColumn() ?: null;
+        $clock_lang = getLangFromQuestionSet($clock_qs);
+        $clock_questions = [];
+        for ($i = 0; $i < 3; $i++) {
+            $clock_questions[] = generateClockQuestion($clock_lang);
+        }
+        echo json_encode([
+            'success'   => true,
+            'questions' => $clock_questions,
+            'type'      => 'clock',
+        ]);
+        exit;
+    }
+
     $limit = 1;
     if ($type === 'fiesta') {
         // Check cooldown (configurable, default 5 minutes)
@@ -428,6 +576,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         
         // Knowledge Tracking — skip for AI-generated gap questions (id starts with 'gap_')
         if (strncmp($q_hash, 'gap_', 4) === 0) continue;
+        // Skip clock questions (random per session, not vocab knowledge)
+        if (strncmp($q_hash, 'clock_', 6) === 0) continue;
         $k_stmt = $pdo->prepare("SELECT * FROM user_knowledge WHERE user_id = ? AND question_hash = ?");
         $k_stmt->execute([$_SESSION['user_id'], $q_hash]);
         $knowledge = $k_stmt->fetch();
