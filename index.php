@@ -147,6 +147,7 @@ if (file_exists($db_file)) {
                     <button id="btn-pet" class="btn btn-info btn-lg m-2">Acariciar</button>
                     <button id="btn-feed" class="btn btn-warning btn-lg m-2">Alimentar</button>
                     <button id="btn-clock" class="btn btn-secondary btn-lg m-2" title="Clock challenge">🕐</button>
+                    <button id="btn-verb" class="btn btn-success btn-lg m-2" title="Verb conjugation">📝</button>
                     <button id="btn-fiesta" class="btn btn-danger btn-lg m-2 d-none">🎉 Fiesta</button>
                     <button id="btn-shop" class="btn btn-outline-primary btn-lg m-2">Shop</button>
                     <div id="feed-countdown" class="text-muted small mt-1 d-none"></div>

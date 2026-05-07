@@ -1015,6 +1015,22 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             statsDiv.innerHTML = '<div class="text-muted small">No question data yet.</div>';
         }
+
+        // Verb training stats
+        if (d.success) {
+            let vhtml = '<h6 class="mt-3">📝 Verb-Training</h6>';
+            if (d.verb_total > 0) {
+                vhtml += `<div class="small mb-2">Insgesamt: <strong>${d.verb_total}</strong> Verben &nbsp; ✅ erste Versuch: <strong>${d.verb_correct_first_try}</strong> &nbsp; ❌ mit Fehler: <strong>${d.verb_incorrect}</strong></div>`;
+                vhtml += '<table class="table table-sm"><thead><tr><th>Zeitform</th><th class="text-center">Gesamt</th><th class="text-center">✅ 1. Versuch</th><th class="text-center">❌ Fehler</th></tr></thead><tbody>';
+                (d.verb_stats || []).forEach(v => {
+                    vhtml += `<tr><td>${escapeHtml(v.tense)}</td><td class="text-center">${v.total}</td><td class="text-center">${v.correct_first_try}</td><td class="text-center">${v.incorrect}</td></tr>`;
+                });
+                vhtml += '</tbody></table>';
+            } else {
+                vhtml += '<div class="text-muted small">Noch keine Verben trainiert.</div>';
+            }
+            statsDiv.innerHTML += vhtml;
+        }
     }
 
     async function loadUsers() {
@@ -1771,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function startChallenge(type) {
         challengeType = type;
 
-        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive'), clock: document.getElementById('btn-clock') };
+        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive'), clock: document.getElementById('btn-clock'), verb: document.getElementById('btn-verb') };
         const triggerBtn = btnMap[type] || null;
         let originalHtml = null;
         if (triggerBtn) {
@@ -1810,6 +1826,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         challengeProgress.textContent = `Question ${currentQuestionIndex + 1} of ${currentChallenge.length}`;
         challengeQuestion.textContent = q.question;
+        // Verb questions ship a multi-line label; render line breaks
+        if (q.type === 'verb') {
+            challengeQuestion.style.whiteSpace = 'pre-line';
+            challengeQuestion.style.fontSize = '1.2rem';
+        } else {
+            challengeQuestion.style.whiteSpace = '';
+            challengeQuestion.style.fontSize = '';
+        }
         inputChallengeAnswer.value = '';
         inputChallengeAnswer.disabled = false;
         btnChallengeSubmit.classList.remove('d-none');
@@ -1825,6 +1849,9 @@ document.addEventListener('DOMContentLoaded', () => {
             qLabel.classList.remove('d-none');
         } else if (q.type === 'clock') {
             qLabel.textContent = '🕐';
+            qLabel.classList.remove('d-none');
+        } else if (q.type === 'verb') {
+            qLabel.textContent = '📝 Konjugiere und bilde einen Satz:';
             qLabel.classList.remove('d-none');
         } else {
             qLabel.textContent = '';
@@ -1944,6 +1971,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 .trim();
             const userN = norm(inputChallengeAnswer.value);
             isCorrect = userN.length > 0 && q.answers.some(a => norm(a) === userN);
+        } else if (q.type === 'verb') {
+            const norm = (s) => String(s).toLowerCase()
+                .replace(/[.!?;,]+$/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const userN = norm(inputChallengeAnswer.value);
+            isCorrect = userN.length > 0 && q.answers.some(a => norm(a) === userN);
         } else {
             isCorrect = q.answers.some(a => a.trim().toLowerCase() === userAnswer);
         }
@@ -1954,7 +1988,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnChallengeSubmit.classList.add('d-none');
 
         if (isCorrect) {
-            challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
+            challengeResults.push({ id: q.id, attempts: currentQuestionAttempts, tense: q.tense });
             showFeedback('success', "Correct! 🎉", '', q.answers[0]);
             btnChallengeNext.classList.remove('d-none');
             btnChallengeNext.focus();
@@ -1992,13 +2026,61 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (aiAccepted) {
                 challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
-                const note = aiExplanation || `expected: ${q.answers[0]}`;
+                const note = aiExplanation
+                    ? `${aiExplanation} (expected: ${q.answers[0]})`
+                    : `expected: ${q.answers[0]}`;
                 showFeedback('success', "Correct! 🎉", note, q.answers[0]);
                 btnChallengeNext.classList.remove('d-none');
                 btnChallengeNext.focus();
             } else {
                 const correctAnswers = q.answers.join(" OR ");
                 const note = aiExplanation ? `${aiExplanation} (expected: ${correctAnswers})` : `The correct answer was: ${correctAnswers}`;
+                showFeedback('danger', "Incorrect 😔", note, q.answers[0]);
+                btnChallengeRepeat.classList.remove('d-none');
+                btnChallengeRepeat.focus();
+            }
+        } else if (q.type === 'verb') {
+            // For verb questions: ask OpenAI if the conjugated sentence is grammatically acceptable
+            btnChallengeNext.classList.add('d-none');
+            btnChallengeRepeat.classList.add('d-none');
+            challengeFeedback.className = 'mt-4 p-3 rounded text-center alert alert-info';
+            challengeFeedbackTitle.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Checking…';
+            challengeFeedbackText.classList.add('d-none');
+            btnTtsPlay.classList.add('d-none');
+            let aiAccepted = false;
+            let aiExplanation = null;
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 17000);
+                const res = await fetch('api/challenge.php?action=check_verb_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        verb:        q.verb,
+                        tense:       q.tense,
+                        person:      q.person,
+                        expected:    q.answers[0],
+                        user_answer: inputChallengeAnswer.value.trim(),
+                    }),
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                const data = await res.json();
+                aiAccepted = !!data.valid;
+                aiExplanation = data.explanation || null;
+            } catch (err) {
+                console.error('Verb answer check failed:', err);
+            }
+            if (aiAccepted) {
+                challengeResults.push({ id: q.id, attempts: currentQuestionAttempts, tense: q.tense });
+                const note = aiExplanation
+                    ? `${aiExplanation} (e.g.: ${q.answers[0]})`
+                    : `e.g.: ${q.answers[0]}`;
+                showFeedback('success', "Correct! 🎉", note, q.answers[0]);
+                btnChallengeNext.classList.remove('d-none');
+                btnChallengeNext.focus();
+            } else {
+                const note = aiExplanation ? `${aiExplanation} (e.g.: ${q.answers[0]})` : `e.g.: ${q.answers[0]}`;
                 showFeedback('danger', "Incorrect 😔", note, q.answers[0]);
                 btnChallengeRepeat.classList.remove('d-none');
                 btnChallengeRepeat.focus();
@@ -2138,6 +2220,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnClock.addEventListener('click', () => {
             if (btnClock.disabled) return;
             startChallenge('clock');
+        });
+    }
+
+    const btnVerb = document.getElementById('btn-verb');
+    if (btnVerb) {
+        btnVerb.addEventListener('click', () => {
+            if (btnVerb.disabled) return;
+            startChallenge('verb');
         });
     }
 

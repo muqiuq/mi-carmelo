@@ -54,7 +54,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ];
         }
 
-        echo json_encode(['success' => true, 'knowledge' => $knowledge]);
+        // Verb training stats per tense
+        $verb_stats = [];
+        $verb_total = 0; $verb_correct = 0; $verb_incorrect = 0;
+        try {
+            $vstmt = $pdo->prepare("SELECT tense, total, correct_first_try, incorrect FROM user_verb_stats WHERE user_id = ? ORDER BY tense");
+            $vstmt->execute([$user_id]);
+            foreach ($vstmt->fetchAll() as $vrow) {
+                $verb_stats[] = [
+                    'tense'             => $vrow['tense'],
+                    'total'             => (int)$vrow['total'],
+                    'correct_first_try' => (int)$vrow['correct_first_try'],
+                    'incorrect'         => (int)$vrow['incorrect'],
+                ];
+                $verb_total     += (int)$vrow['total'];
+                $verb_correct   += (int)$vrow['correct_first_try'];
+                $verb_incorrect += (int)$vrow['incorrect'];
+            }
+        } catch (PDOException $e) { /* table missing on old DB */ }
+
+        echo json_encode([
+            'success'   => true,
+            'knowledge' => $knowledge,
+            'verb_stats'=> $verb_stats,
+            'verb_total'=> $verb_total,
+            'verb_correct_first_try' => $verb_correct,
+            'verb_incorrect' => $verb_incorrect,
+        ]);
     } elseif ($action === 'list_question_files') {
         $data_dir = __DIR__ . '/../data';
         $files = glob($data_dir . '/*.yaml') ?: [];

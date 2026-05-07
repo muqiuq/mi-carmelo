@@ -225,7 +225,14 @@ function generateClockQuestion(string $lang = 'de'): array {
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
-    $type = $_GET['type'] ?? 'pet'; // 'pet', 'feed', 'revive', 'clock', or 'fiesta'
+    $type = $_GET['type'] ?? 'pet'; // 'pet', 'feed', 'revive', 'clock', 'verb', or 'fiesta'
+
+    // Verb training: delegate to VerbTrainer (api/verb.php)
+    if ($type === 'verb') {
+        require_once __DIR__ . '/verb.php';
+        echo VerbTrainer::generateChallengeJson(3);
+        exit;
+    }
 
     // Clock challenge: 3 random analog-clock questions, no vocabulary lookup needed
     if ($type === 'clock') {
@@ -529,6 +536,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         'debug_prompt' => $user_msg,
     ]);
     exit;
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'check_verb_answer') {
+    // Check whether a user's verb-conjugation sentence is grammatically acceptable via OpenAI.
+    $data        = json_decode(file_get_contents('php://input'), true);
+    $verb        = trim($data['verb']        ?? '');
+    $tense       = trim($data['tense']       ?? '');
+    $person      = trim($data['person']      ?? '');
+    $expected    = trim($data['expected']    ?? '');
+    $user_answer = trim($data['user_answer'] ?? '');
+
+    if ($user_answer === '' || $verb === '' || $person === '') {
+        echo json_encode(['valid' => false, 'error' => 'Missing params']);
+        exit;
+    }
+
+    $game_config = require __DIR__ . '/../data/game_config.php';
+    $api_key = $game_config['openai_api_key'] ?? '';
+    if (empty($api_key)) {
+        echo json_encode(['valid' => false]);
+        exit;
+    }
+
+    $system = 'You are a STRICT German grammar checker for a language learning app. '
+        . 'The learner had to conjugate a German verb in a given tense and person and form a short complete sentence. '
+        . 'You receive: the infinitive, the required tense, the required pronoun/person, an example expected sentence, and the learner answer. '
+        . 'STRICT rules — reject the answer if ANY of these are violated: '
+        . '(1) The verb must be in EXACTLY the requested tense (Präsens / Präteritum / Futur / Plusquamperfekt) and EXACTLY the requested person — no other tense or person counts as correct. '
+        . '(2) The whole sentence must be fully grammatically correct German: correct word order, correct case (Nominativ/Akkusativ/Dativ) on articles and adjectives, correct auxiliary verb (haben/sein) for compound tenses, correct Partizip II form. '
+        . '(3) Missing or wrong articles on countable nouns are grammar errors and must be rejected (e.g. "Du nimmst Buch" is wrong, "Du nimmst ein Buch" is correct). '
+        . 'BE FLEXIBLE only about the choice of noun/object: any sensible noun phrase that fits the verb is fine — it does NOT have to match the example. '
+        . 'Capitalisation of the first letter and trailing punctuation (./!/?) may be ignored. '
+        . 'Respond ONLY with valid JSON: {"valid": true, "explanation": "one short sentence why"} '
+        . 'or {"valid": false, "explanation": "one short German sentence pointing out the specific grammar error"}.';
+
+    $user_msg = "Verb (Infinitiv): $verb\nZeit: $tense\nPerson: $person\nBeispiel: $expected\nAntwort: $user_answer";
+
+    $ch = curl_init('https://api.openai.com/v1/chat/completions');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $api_key,
+        ],
+        CURLOPT_POSTFIELDS => json_encode([
+            'model'                 => ($game_config['openai_model'] ?? 'gpt-4.1-mini'),
+            'messages'              => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user',   'content' => $user_msg],
+            ],
+            'temperature'           => 0,
+            'max_completion_tokens' => 200,
+        ]),
+    ]);
+
+    $response  = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if ($http_code !== 200 || !$response) {
+        echo json_encode(['valid' => false, 'http_code' => $http_code, 'error' => 'OpenAI request failed']);
+        exit;
+    }
+
+    $result  = json_decode($response, true);
+    $content = trim($result['choices'][0]['message']['content'] ?? '');
+    $content = preg_replace('/^```(?:json)?\s*/i', '', $content);
+    $content = preg_replace('/\s*```$/', '', $content);
+    $parsed  = json_decode($content, true);
+
+    echo json_encode([
+        'valid'       => !empty($parsed['valid']),
+        'explanation' => $parsed['explanation'] ?? null,
+    ]);
+    exit;
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
     $game_config = require __DIR__ . '/../data/game_config.php';
     
@@ -578,6 +659,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         if (strncmp($q_hash, 'gap_', 4) === 0) continue;
         // Skip clock questions (random per session, not vocab knowledge)
         if (strncmp($q_hash, 'clock_', 6) === 0) continue;
+        // Verb conjugation: track per-tense stats instead of vocab knowledge
+        if (strncmp($q_hash, 'verb_', 5) === 0) {
+            $vt = trim((string)($res['tense'] ?? ''));
+            if ($vt !== '') {
+                $vinc = $attempts > 1 ? 1 : 0;
+                $vfirst = $attempts === 1 ? 1 : 0;
+                $vstmt = $pdo->prepare(
+                    "INSERT INTO user_verb_stats (user_id, tense, total, correct_first_try, incorrect)
+                     VALUES (?, ?, 1, ?, ?)
+                     ON CONFLICT(user_id, tense) DO UPDATE SET
+                        total = total + 1,
+                        correct_first_try = correct_first_try + excluded.correct_first_try,
+                        incorrect = incorrect + excluded.incorrect"
+                );
+                $vstmt->execute([$_SESSION['user_id'], $vt, $vfirst, $vinc]);
+            }
+            continue;
+        }
         $k_stmt = $pdo->prepare("SELECT * FROM user_knowledge WHERE user_id = ? AND question_hash = ?");
         $k_stmt->execute([$_SESSION['user_id'], $q_hash]);
         $knowledge = $k_stmt->fetch();

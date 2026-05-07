@@ -226,6 +226,23 @@ try {
 // Migration: app_state key-value table for runtime state
 try {
     $pdo->exec("
+        CREATE TABLE IF NOT EXISTS user_verb_stats (
+            user_id INTEGER NOT NULL,
+            tense TEXT NOT NULL,
+            total INTEGER NOT NULL DEFAULT 0,
+            correct_first_try INTEGER NOT NULL DEFAULT 0,
+            incorrect INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, tense),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ");
+} catch (PDOException $e) {
+    // Table may already exist
+}
+
+// Migration: app_state key-value table for runtime state
+try {
+    $pdo->exec("
         CREATE TABLE IF NOT EXISTS app_state (
             key TEXT PRIMARY KEY NOT NULL,
             value TEXT NOT NULL
