@@ -141,6 +141,13 @@ function clockGermanWords(int $h, int $m): array {
         $forms[] = $word . ' vor ' . $next;
     }
 
+    // Accept "ab" as a colloquial alias for "nach" (e.g. "fünf ab vier" = "fünf nach vier").
+    foreach ($forms as $f) {
+        if (strpos($f, ' nach ') !== false) {
+            $forms[] = str_replace(' nach ', ' ab ', $f);
+        }
+    }
+
     return $forms;
 }
 

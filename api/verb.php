@@ -229,7 +229,7 @@ class VerbTrainer {
         if ($displayNoun === '' || $displayNoun === null) {
             $displayNoun = $noun;
         }
-        $label = "Verb: $verb\nZeit: $tense\nPerson: $pron\nNomen: $displayNoun";
+        $label = "Verb: $verb\nZeit: $tense\nPerson: $pron\nEinzubauen: $displayNoun";
 
         return [
             'id'        => 'verb_' . bin2hex(random_bytes(4)),
