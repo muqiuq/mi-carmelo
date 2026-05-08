@@ -73,6 +73,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         } catch (PDOException $e) { /* table missing on old DB */ }
 
+        // Slot machine lifetime stats
+        $slot_played = 0; $slot_won = 0;
+        try {
+            $sstmt = $pdo->prepare("SELECT total_played, total_won FROM user_slot_stats WHERE user_id = ?");
+            $sstmt->execute([$user_id]);
+            if ($srow = $sstmt->fetch()) {
+                $slot_played = (int)$srow['total_played'];
+                $slot_won    = (int)$srow['total_won'];
+            }
+        } catch (PDOException $e) { /* table missing until first spin */ }
+
         echo json_encode([
             'success'   => true,
             'knowledge' => $knowledge,
@@ -80,6 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'verb_total'=> $verb_total,
             'verb_correct_first_try' => $verb_correct,
             'verb_incorrect' => $verb_incorrect,
+            'slot_played' => $slot_played,
+            'slot_won'    => $slot_won,
         ]);
     } elseif ($action === 'list_question_files') {
         $data_dir = __DIR__ . '/../data';

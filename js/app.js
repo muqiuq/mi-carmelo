@@ -967,6 +967,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let data;
         try {
             const useFree = slotFreeSpins > 0;
+            // Optimistically deduct the bet from the displayed balance so the player
+            // sees the cost before the spin animation runs. The authoritative balance
+            // returned by the server is applied at the end of the spin.
+            if (!useFree && slotConfig) {
+                const cost = slotConfig.base_cost * slotFactor * (slotSelected.length || 0);
+                if (cost > 0) {
+                    slotConfig.balance = Math.max(0, (slotConfig.balance || 0) - cost);
+                    updateSlotBalanceLabel();
+                }
+            }
             const res = await fetch('api/slot.php?action=play', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1413,6 +1423,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 vhtml += '<div class="text-muted small">Noch keine Verben trainiert.</div>';
             }
             statsDiv.innerHTML += vhtml;
+
+            // Slot machine lifetime stats
+            const played = Number(d.slot_played || 0);
+            const won    = Number(d.slot_won || 0);
+            const net    = won - played;
+            const fmt    = n => n.toLocaleString('de-DE');
+            let shtml = '<h6 class="mt-3">🎰 Mini Slot</h6>';
+            if (played > 0 || won > 0) {
+                const netClass = net >= 0 ? 'text-success' : 'text-danger';
+                const netSign  = net >= 0 ? '+' : '';
+                shtml += `<div class="small">Eingesetzt: <strong>${fmt(played)}</strong> Punkte &nbsp; · &nbsp; Gewonnen: <strong>${fmt(won)}</strong> Punkte &nbsp; · &nbsp; Netto: <strong class="${netClass}">${netSign}${fmt(net)}</strong></div>`;
+            } else {
+                shtml += '<div class="text-muted small">Noch nicht gespielt.</div>';
+            }
+            statsDiv.innerHTML += shtml;
         }
     }
 

@@ -99,6 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'play') {
     try {
         $pdo->beginTransaction();
 
+        // Ensure stats table exists (cheap idempotent call)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS user_slot_stats (
+            user_id INTEGER PRIMARY KEY,
+            total_played INTEGER NOT NULL DEFAULT 0,
+            total_won    INTEGER NOT NULL DEFAULT 0
+        )");
+
         $stmt = $pdo->prepare("SELECT total_points FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $balance = (int)$stmt->fetchColumn();
@@ -170,6 +177,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'play') {
             $upd = $pdo->prepare("UPDATE users SET total_points = total_points + ? WHERE id = ?");
             $upd->execute([$totalPayout, $_SESSION['user_id']]);
         }
+
+        // Update lifetime slot stats (free spins count payout but no cost).
+        $statsUpd = $pdo->prepare(
+            "INSERT INTO user_slot_stats (user_id, total_played, total_won)
+             VALUES (?, ?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET
+                total_played = total_played + excluded.total_played,
+                total_won    = total_won    + excluded.total_won"
+        );
+        $statsUpd->execute([$_SESSION['user_id'], $totalCost, $totalPayout]);
 
         $pdo->commit();
 
