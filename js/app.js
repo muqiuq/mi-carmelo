@@ -656,6 +656,313 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- MINI SLOT MACHINE ---
+    const viewSlot         = document.getElementById('view-slot');
+    const btnSlot          = document.getElementById('btn-slot');
+    const btnSlotBack      = document.getElementById('btn-slot-back');
+    const btnSlotSpin      = document.getElementById('btn-slot-spin');
+    const slotBoardEl      = document.getElementById('slot-board');
+    const slotResultEl     = document.getElementById('slot-result');
+    const slotFruitPicker  = document.getElementById('slot-fruit-picker');
+    const slotFactorPicker = document.getElementById('slot-factor-picker');
+    const slotCostEl       = document.getElementById('slot-cost');
+    const slotBalanceEl    = document.getElementById('slot-balance');
+    if (viewSlot) allViews.push(viewSlot);
+
+    let slotConfig    = null;            // { fruits, base_cost, allowed_factor, payout_mult }
+    let slotSelected  = [];              // array of fruit emojis
+    let slotFactor    = 1;
+    let slotPerimeter = [];              // ordered list of cell indices around the perimeter
+    let slotSpinning  = false;
+    let slotFreeSpins = 0;               // free spins available
+
+    // Build a 6×6 grid; only the perimeter cells (20 of them) hold fruits.
+    function buildSlotBoard() {
+        slotBoardEl.innerHTML = '';
+        slotPerimeter = [];
+        const fruits = slotConfig.fruits;
+        const cells  = [];
+        for (let r = 0; r < 6; r++) {
+            for (let c = 0; c < 6; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'slot-cell';
+                const onPerimeter = (r === 0 || r === 5 || c === 0 || c === 5);
+                if (!onPerimeter) {
+                    cell.classList.add('slot-empty');
+                } else {
+                    // Spread fruits evenly around the ring.
+                    // Order: top row L→R, right col T→B (skipping corner already used),
+                    // bottom row R→L, left col B→T.
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                }
+                slotBoardEl.appendChild(cell);
+                cells.push({ el: cell, r, c });
+            }
+        }
+        // Walk perimeter clockwise starting top-left.
+        const ring = [];
+        for (let c = 0; c < 6; c++)            ring.push(cells[0 * 6 + c]);          // top row
+        for (let r = 1; r < 6; r++)            ring.push(cells[r * 6 + 5]);          // right col
+        for (let c = 4; c >= 0; c--)           ring.push(cells[5 * 6 + c]);          // bottom row
+        for (let r = 4; r >= 1; r--)           ring.push(cells[r * 6 + 0]);          // left col
+        ring.forEach((entry, i) => {
+            const fruit = fruits[i % fruits.length];
+            entry.el.textContent = fruit;
+            entry.el.dataset.fruit = fruit;
+            slotPerimeter.push(entry.el);
+        });
+        // Replace ONE random perimeter cell with the radioactive tile.
+        if (slotConfig.nuke) {
+            const nukeIdx = Math.floor(Math.random() * slotPerimeter.length);
+            slotPerimeter[nukeIdx].textContent = slotConfig.nuke;
+            slotPerimeter[nukeIdx].dataset.fruit = slotConfig.nuke;
+            slotPerimeter[nukeIdx].classList.add('slot-nuke');
+        }
+    }
+
+    function buildSlotPickers() {
+        slotFruitPicker.innerHTML = '';
+        const pickerFruits = slotConfig.selectable_fruits || slotConfig.fruits;
+        pickerFruits.forEach(f => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'slot-fruit-btn';
+            btn.textContent = f;
+            btn.dataset.fruit = f;
+            btn.addEventListener('click', () => toggleSlotFruit(f));
+            slotFruitPicker.appendChild(btn);
+        });
+        slotFactorPicker.innerHTML = '';
+        slotConfig.allowed_factor.forEach(fx => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-warning' + (fx === slotFactor ? ' active' : '');
+            btn.textContent = fx + 'x';
+            btn.dataset.factor = fx;
+            btn.addEventListener('click', () => {
+                slotFactor = fx;
+                slotFactorPicker.querySelectorAll('.btn').forEach(b =>
+                    b.classList.toggle('active', Number(b.dataset.factor) === slotFactor));
+                updateSlotCost();
+            });
+            slotFactorPicker.appendChild(btn);
+        });
+    }
+
+    function toggleSlotFruit(fruit) {
+        if (slotSpinning) return;
+        const idx = slotSelected.indexOf(fruit);
+        if (idx >= 0) {
+            slotSelected.splice(idx, 1);
+        } else {
+            if (slotSelected.length >= 2) return; // max 2
+            slotSelected.push(fruit);
+        }
+        slotFruitPicker.querySelectorAll('.slot-fruit-btn').forEach(b => {
+            b.classList.toggle('selected', slotSelected.includes(b.dataset.fruit));
+        });
+        updateSlotCost();
+    }
+
+    function updateSlotCost() {
+        const cost = slotConfig.base_cost * slotFactor * slotSelected.length;
+        const useFree = slotFreeSpins > 0;
+        if (slotSelected.length === 0) {
+            slotCostEl.textContent = 'Wähle 1 oder 2 Früchte';
+            btnSlotSpin.disabled = true;
+            btnSlotSpin.textContent = 'Spin!';
+        } else if (useFree) {
+            slotCostEl.innerHTML = `🤩 <b>Free Spin</b> verfügbar — dieser Spin ist gratis (Faktor & Früchte zählen für die Auszahlung)`;
+            btnSlotSpin.disabled = false;
+            btnSlotSpin.textContent = '🤩 Free Spin!';
+        } else {
+            slotCostEl.textContent = `Einsatz: ${cost} Punkte (${slotSelected.length} × ${slotConfig.base_cost * slotFactor})`;
+            btnSlotSpin.disabled = false;
+            btnSlotSpin.textContent = 'Spin!';
+        }
+    }
+
+    function updateSlotBalanceLabel() {
+        const fs = slotFreeSpins > 0 ? ` &nbsp;·&nbsp; 🤩 Free Spins: <b>${slotFreeSpins}</b>` : '';
+        slotBalanceEl.innerHTML = `🏆 ${slotConfig.balance} Punkte &nbsp;·&nbsp; Gewinn: ${slotConfig.payout_mult}× Einsatz${fs}`;
+    }
+
+    async function openSlot() {
+        slotResultEl.textContent = '';
+        slotSelected = [];
+        slotFactor = 1;
+        try {
+            const res = await fetch('api/slot.php?action=info');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Fehler');
+            slotConfig = data;
+            slotConfig.balance = data.balance;
+            slotFreeSpins = data.free_spins || 0;
+            updateSlotBalanceLabel();
+            buildSlotBoard();
+            buildSlotPickers();
+            updateSlotCost();
+            showView(viewSlot);
+        } catch (e) {
+            alert('Slot konnte nicht geladen werden.');
+        }
+    }
+
+    btnSlot.addEventListener('click', openSlot);
+    btnSlotBack.addEventListener('click', () => { showView(viewGame); fetchStats(); });
+
+    // Animate the rotating light: visit each perimeter cell, decelerating, total ~5s,
+    // and end on the cell whose .dataset.fruit matches `landingFruit` (first match).
+    function spinAnimation(landingFruit) {
+        return new Promise(resolve => {
+            const ringLen = slotPerimeter.length; // 20
+            // find target index of any cell holding the landing fruit
+            const candidates = [];
+            slotPerimeter.forEach((el, i) => { if (el.dataset.fruit === landingFruit) candidates.push(i); });
+            const targetIdx = candidates[Math.floor(Math.random() * candidates.length)];
+
+            // Build a sequence of indices: spin ~3.5 full rotations then approach target
+            const minSteps = ringLen * 3 + ((targetIdx + ringLen) % ringLen);
+            const totalSteps = minSteps + ringLen; // a bit extra for nice deceleration
+            const totalMs = 5000;
+
+            // Distribute step delays: cubic ease-out so it slows toward the end.
+            const delays = [];
+            for (let s = 1; s <= totalSteps; s++) {
+                const t = s / totalSteps;          // 0..1
+                const eased = 1 - Math.pow(1 - t, 3);
+                delays.push(eased * totalMs);
+            }
+
+            slotPerimeter.forEach(c => c.classList.remove('slot-active', 'slot-final-win', 'slot-final-lose'));
+
+            let step = 0;
+            function tick() {
+                if (step > 0) slotPerimeter[(step - 1) % ringLen].classList.remove('slot-active');
+                if (step >= totalSteps) {
+                    const finalEl = slotPerimeter[targetIdx];
+                    finalEl.classList.add('slot-active');
+                    resolve(finalEl);
+                    return;
+                }
+                slotPerimeter[step % ringLen].classList.add('slot-active');
+                const nextDelay = delays[step] - (delays[step - 1] || 0);
+                step++;
+                setTimeout(tick, Math.max(20, nextDelay));
+            }
+            tick();
+        });
+    }
+
+    function spawnSlotConfetti() {
+        const wrap = document.createElement('div');
+        wrap.className = 'slot-confetti';
+        const symbols = ['⭐','✨','🎉','💫','🌟','🎊'];
+        for (let i = 0; i < 60; i++) {
+            const s = document.createElement('span');
+            s.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+            s.style.left = Math.random() * 100 + 'vw';
+            s.style.animationDelay = (Math.random() * 0.4) + 's';
+            s.style.animationDuration = (1.8 + Math.random() * 1.2) + 's';
+            wrap.appendChild(s);
+        }
+        document.body.appendChild(wrap);
+        setTimeout(() => wrap.remove(), 3000);
+    }
+
+    function showCherryRefundOverlay() {
+        const ov = document.createElement('div');
+        ov.className = 'slot-cherry-overlay';
+        ov.textContent = '🍒';
+        slotBoardEl.appendChild(ov);
+        setTimeout(() => ov.remove(), 1500);
+    }
+
+    function showFreeSpinOverlay() {
+        const ov = document.createElement('div');
+        ov.className = 'slot-cherry-overlay slot-freespin-overlay';
+        ov.innerHTML = '<div class="freespin-emoji">🤩</div><div class="freespin-label">FREE SPIN!</div>';
+        slotBoardEl.appendChild(ov);
+        setTimeout(() => ov.remove(), 2000);
+    }
+
+    btnSlotSpin.addEventListener('click', async () => {
+        if (slotSpinning) return;
+        if (slotSelected.length < 1 || slotSelected.length > 2) return;
+        slotSpinning = true;
+        btnSlotSpin.disabled = true;
+        slotResultEl.textContent = '';
+        slotPerimeter.forEach(c => c.classList.remove('slot-active', 'slot-final-win', 'slot-final-lose'));
+
+        let data;
+        try {
+            const useFree = slotFreeSpins > 0;
+            const res = await fetch('api/slot.php?action=play', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fruits: slotSelected, factor: slotFactor, use_free_spin: useFree }),
+            });
+            data = await res.json();
+        } catch (e) {
+            slotResultEl.textContent = 'Netzwerkfehler';
+            slotSpinning = false;
+            btnSlotSpin.disabled = false;
+            return;
+        }
+        if (!data.success) {
+            slotResultEl.textContent = data.error || 'Fehler';
+            slotSpinning = false;
+            updateSlotCost();
+            return;
+        }
+
+        // Run spins sequentially (one per selected fruit)
+        for (let i = 0; i < data.spins.length; i++) {
+            const sp = data.spins[i];
+            const selLabel = Array.isArray(sp.selected) ? sp.selected.join(' / ') : sp.selected;
+            slotResultEl.textContent = data.spins.length > 1
+                ? `Spin ${i + 1}/${data.spins.length} für ${selLabel} …`
+                : `Spin für ${selLabel} …`;
+            const finalEl = await spinAnimation(sp.landing);
+            finalEl.classList.remove('slot-active');
+            const isNuke   = sp.outcome === 'nuke';
+            const isCherry = sp.outcome === 'cherry';
+            finalEl.classList.add(sp.win ? 'slot-final-win' : 'slot-final-lose');
+            if (sp.win) {
+                spawnSlotConfetti();
+            } else if (isNuke) {
+                slotResultEl.textContent = `☢️ Atomschlag! ${selLabel} verloren …`;
+            } else if (isCherry) {
+                slotResultEl.textContent = `🍒 Glück gehabt: Einsatz zurück (${sp.payout} Punkte)`;
+                showCherryRefundOverlay();
+            }
+            // Free-spin bonus is awarded only on losses; show it AFTER the lose feedback.
+            if (sp.freespin_awarded) {
+                await new Promise(r => setTimeout(r, 600));
+                slotResultEl.textContent = `🤩 Bonus! Free Spin gewonnen!`;
+                showFreeSpinOverlay();
+                await new Promise(r => setTimeout(r, 1400));
+            }
+            await new Promise(r => setTimeout(r, isNuke || isCherry ? 1600 : 900));
+            finalEl.classList.remove('slot-final-win', 'slot-final-lose');
+        }
+
+        const net = data.net;
+        const sign = net >= 0 ? '+' : '';
+        const freeNote = data.used_free_spin ? ' 🤩 (gratis)' : '';
+        slotResultEl.textContent = net > 0
+            ? `🎉 Gewonnen!${freeNote} ${sign}${net} Punkte (Auszahlung: ${data.total_payout})`
+            : (data.used_free_spin
+                ? `Free Spin verbraucht. Auszahlung: ${data.total_payout}`
+                : `Verloren: ${sign}${net} Punkte`);
+        slotConfig.balance = data.balance;
+        slotFreeSpins = data.free_spins || 0;
+        updateSlotBalanceLabel();
+        slotSpinning = false;
+        updateSlotCost();
+    });
+
     // --- ADMIN PANEL ---
     let adminUsers = [];
     let currentDetailUserId = null;

@@ -150,6 +150,7 @@ if (file_exists($db_file)) {
                     <button id="btn-verb" class="btn btn-success btn-lg m-2" title="Verb conjugation">📝</button>
                     <button id="btn-fiesta" class="btn btn-danger btn-lg m-2 d-none">🎉 Fiesta</button>
                     <button id="btn-shop" class="btn btn-outline-primary btn-lg m-2">Shop</button>
+                    <button id="btn-slot" class="btn btn-outline-warning btn-lg m-2" title="Mini Slot">🎰</button>
                     <div id="feed-countdown" class="text-muted small mt-1 d-none"></div>
                     <div id="fiesta-countdown" class="text-muted small mt-1 d-none"></div>
                 </div>
@@ -463,6 +464,35 @@ if (file_exists($db_file)) {
             <div id="shop-balance" class="small mb-3"></div>
             <div id="shop-list" class="row g-3 justify-content-center"></div>
             <button id="btn-shop-back" class="btn btn-secondary mt-3">Zurück zum Spiel</button>
+        </div>
+
+        <!-- SLOT VIEW -->
+        <div id="view-slot" class="view-section d-none">
+            <h2>🎰 Mini Slot</h2>
+            <p class="text-muted small mb-2">Wähle 1 oder 2 Früchte und einen Einsatz. Triffst du eine deiner Früchte, gewinnst du das 4-fache des Einsatzes!</p>
+            <div id="slot-balance" class="small mb-3"></div>
+
+            <div id="slot-board" class="slot-board mx-auto my-3"></div>
+            <div id="slot-result" class="text-center fw-bold mb-2" style="min-height:1.5em;"></div>
+
+            <div class="d-grid mx-auto mb-3" style="max-width: 360px;">
+                <button id="btn-slot-spin" class="btn btn-warning btn-lg fw-bold" style="font-size:1.3rem; padding: 0.75rem;">Spin!</button>
+                <div id="slot-cost" class="small text-muted text-center mt-1"></div>
+            </div>
+
+            <div class="text-center mb-3">
+                <div class="mb-1 small text-muted">Früchte (1 oder 2):</div>
+                <div id="slot-fruit-picker" class="d-flex flex-wrap justify-content-center gap-2"></div>
+            </div>
+
+            <div class="text-center mb-3">
+                <div class="mb-1 small text-muted">Einsatz-Faktor:</div>
+                <div id="slot-factor-picker" class="btn-group" role="group"></div>
+            </div>
+
+            <div class="text-center">
+                <button id="btn-slot-back" class="btn btn-secondary">Zurück zum Spiel</button>
+            </div>
         </div>
 
     </div>
