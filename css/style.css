@@ -1062,3 +1062,187 @@ body.has-sleep-hearts #pet-area.is-sleeping .sleep-zzz {
     color: transparent;
     margin-top: 6px;
 }
+
+/* === Slot center stage (animated mascot + reels) === */
+.slot-stage {
+    position: absolute;
+    grid-column: 2 / 6;
+    grid-row: 2 / 6;
+    /* Position over the inner 4×4 region of the 6×6 board */
+    left: calc(10px + (100% - 20px) * 1/6 + 4px);
+    top:  calc(10px + (100% - 20px) * 1/6 + 4px);
+    right: calc(10px + (100% - 20px) * 1/6 + 4px);
+    bottom: calc(10px + (100% - 20px) * 1/6 + 4px);
+    border-radius: 12px;
+    background: radial-gradient(circle at 50% 35%, #1a1245 0%, #2b1d4a 60%, #4a1d4a 100%);
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.7), inset 0 0 4px rgba(255,255,255,0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    padding: 6px 4px 8px;
+    pointer-events: none;
+}
+.slot-stage-glow {
+    position: absolute;
+    inset: -20%;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.18), transparent 60%);
+    animation: stage-glow-pulse 2.4s ease-in-out infinite;
+}
+@keyframes stage-glow-pulse {
+    0%,100% { opacity: 0.5; transform: scale(0.95); }
+    50%     { opacity: 1;   transform: scale(1.1); }
+}
+.slot-stage-reels {
+    display: flex;
+    gap: 4px;
+    z-index: 2;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    border-radius: 6px;
+    padding: 3px 5px;
+    box-shadow: inset 0 0 6px rgba(0,0,0,0.7);
+}
+.slot-reel {
+    width: 18px;
+    height: 22px;
+    overflow: hidden;
+    position: relative;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.06);
+}
+.slot-reel-strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 22px;
+    font-size: 14px;
+}
+.slot-reel-strip span {
+    display: block;
+    height: 22px;
+}
+.slot-stage.spinning .slot-reel-strip {
+    animation: reel-scroll 0.45s linear infinite;
+}
+.slot-stage .slot-reel:nth-child(2) .slot-reel-strip { animation-duration: 0.55s; }
+.slot-stage .slot-reel:nth-child(3) .slot-reel-strip { animation-duration: 0.65s; }
+@keyframes reel-scroll {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+}
+.slot-stage-lights {
+    display: flex;
+    gap: 4px;
+    z-index: 2;
+}
+.slot-stage-lights span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ffd700;
+    box-shadow: 0 0 4px #ffd700;
+    opacity: 0.4;
+    animation: stage-light 1.6s linear infinite;
+}
+.slot-stage-lights span:nth-child(1) { animation-delay: 0s; }
+.slot-stage-lights span:nth-child(2) { animation-delay: 0.2s; background:#ff66cc; box-shadow:0 0 4px #ff66cc; }
+.slot-stage-lights span:nth-child(3) { animation-delay: 0.4s; background:#66e0ff; box-shadow:0 0 4px #66e0ff; }
+.slot-stage-lights span:nth-child(4) { animation-delay: 0.6s; background:#80ff66; box-shadow:0 0 4px #80ff66; }
+.slot-stage-lights span:nth-child(5) { animation-delay: 0.8s; }
+.slot-stage-lights span:nth-child(6) { animation-delay: 1.0s; background:#ff66cc; box-shadow:0 0 4px #ff66cc; }
+.slot-stage-lights span:nth-child(7) { animation-delay: 1.2s; background:#66e0ff; box-shadow:0 0 4px #66e0ff; }
+.slot-stage-lights span:nth-child(8) { animation-delay: 1.4s; background:#80ff66; box-shadow:0 0 4px #80ff66; }
+@keyframes stage-light {
+    0%, 60%, 100% { opacity: 0.3; transform: scale(1); }
+    30%           { opacity: 1;   transform: scale(1.4); }
+}
+.slot-stage.spinning .slot-stage-lights span {
+    animation-duration: 0.4s;
+}
+
+/* === Slot mascot: real Carmelo chicken (scaled to fit stage) === */
+.slot-stage-mascot {
+    /* Scaled chicken silhouette ≈ 35×50; extra 14px top room for the comb/head */
+    width: 36px;
+    height: 64px;
+    overflow: visible;
+    z-index: 2;
+    transform-origin: center bottom;
+    animation: mascot-bob 2.2s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+@keyframes mascot-bob {
+    0%,100% { transform: translateY(0) rotate(-3deg); }
+    50%     { transform: translateY(-3px) rotate(3deg); }
+}
+.slot-stage.spinning .slot-stage-mascot {
+    animation: mascot-rock 0.32s ease-in-out infinite;
+}
+@keyframes mascot-rock {
+    0%,100% { transform: translateY(-1px) rotate(-12deg); }
+    25%     { transform: translateY(-4px) rotate(8deg); }
+    50%     { transform: translateY(-1px) rotate(12deg); }
+    75%     { transform: translateY(-4px) rotate(-8deg); }
+}
+.slot-mascot-chicken {
+    position: relative;
+    width: 70px;
+    height: 100px;
+    transform: scale(0.5);
+    transform-origin: top left;
+    /* Shift down so the head (top:-28 internally) stays inside the mascot box */
+    margin-top: 14px;
+}
+.slot-stage.spinning .slot-mascot-chicken {
+    transform: scale(0.5);
+}
+
+/* === Slot win-trio: overlays the spinning reels so they're not visible behind === */
+.slot-stage-win {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    z-index: 5;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    justify-content: center;
+    height: 0;
+    overflow: hidden;
+    transition: height 0.25s ease-out, padding 0.25s ease-out, opacity 0.2s;
+    padding: 0 6px;
+    opacity: 0;
+    background: linear-gradient(180deg, #ffe680, #ffb700);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 6px;
+}
+.slot-stage-win.show {
+    height: 32px;
+    padding: 4px 8px;
+    opacity: 1;
+    box-shadow: 0 0 12px rgba(255,215,0,0.9), inset 0 0 4px rgba(255,255,255,0.6);
+}
+/* When a win is shown, hide the spinning reels behind it. */
+.slot-stage:has(.slot-stage-win.show) .slot-stage-reels {
+    visibility: hidden;
+}
+.slot-stage-win span {
+    font-size: 18px;
+    line-height: 1;
+    animation: win-fruit-pop 0.5s ease-out backwards;
+}
+.slot-stage-win span:nth-child(1) { animation-delay: 0.05s; }
+.slot-stage-win span:nth-child(2) { animation-delay: 0.20s; }
+.slot-stage-win span:nth-child(3) { animation-delay: 0.35s; }
+@keyframes win-fruit-pop {
+    0%   { transform: scale(0) rotate(-30deg); opacity: 0; }
+    60%  { transform: scale(1.4) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+}

@@ -675,6 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let slotPerimeter = [];              // ordered list of cell indices around the perimeter
     let slotSpinning  = false;
     let slotFreeSpins = 0;               // free spins available
+    let slotStageEl   = null;            // animated centerpiece element
 
     // Build a 6×6 grid; only the perimeter cells (20 of them) hold fruits.
     function buildSlotBoard() {
@@ -719,6 +720,72 @@ document.addEventListener('DOMContentLoaded', () => {
             slotPerimeter[nukeIdx].dataset.fruit = slotConfig.nuke;
             slotPerimeter[nukeIdx].classList.add('slot-nuke');
         }
+        // Build the animated centerpiece (mascot + 3 reels).
+        const stage = document.createElement('div');
+        stage.className = 'slot-stage';
+        stage.innerHTML = `
+            <div class="slot-stage-glow"></div>
+            <div class="slot-stage-mascot">
+                <div class="slot-mascot-chicken">
+                    <div class="chicken-body">
+                        <div class="chicken-head">
+                            <div class="chicken-eye"></div>
+                            <div class="chicken-beak">
+                                <div class="chicken-beak-top"></div>
+                                <div class="chicken-beak-bottom"></div>
+                            </div>
+                            <div class="chicken-comb"></div>
+                        </div>
+                        <div class="chicken-wing"></div>
+                        <div class="chicken-tail"></div>
+                    </div>
+                    <div class="chicken-legs">
+                        <div class="chicken-leg chicken-leg-left"></div>
+                        <div class="chicken-leg chicken-leg-right"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="slot-stage-win"></div>
+            <div class="slot-stage-reels">
+                <div class="slot-reel"><div class="slot-reel-strip"></div></div>
+                <div class="slot-reel"><div class="slot-reel-strip"></div></div>
+                <div class="slot-reel"><div class="slot-reel-strip"></div></div>
+            </div>
+            <div class="slot-stage-lights">
+                <span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span>
+            </div>
+        `;
+        slotBoardEl.appendChild(stage);
+        // Fill each reel strip with the fruit emojis (repeated for seamless scroll).
+        const reelFruits = slotConfig.selectable_fruits || slotConfig.fruits;
+        stage.querySelectorAll('.slot-reel-strip').forEach((strip, i) => {
+            const seq = [];
+            for (let n = 0; n < 6; n++) seq.push(reelFruits[(n + i) % reelFruits.length]);
+            // Duplicate for infinite loop
+            strip.innerHTML = (seq.concat(seq)).map(f => `<span>${f}</span>`).join('');
+        });
+        slotStageEl = stage;
+    }
+
+    function setStageSpinning(on) {
+        if (slotStageEl) slotStageEl.classList.toggle('spinning', !!on);
+    }
+
+    function showStageWin(fruit) {
+        if (!slotStageEl) return;
+        const winEl = slotStageEl.querySelector('.slot-stage-win');
+        if (!winEl) return;
+        winEl.innerHTML = `<span>${fruit}</span><span>${fruit}</span><span>${fruit}</span>`;
+        winEl.classList.add('show');
+    }
+
+    function clearStageWin() {
+        if (!slotStageEl) return;
+        const winEl = slotStageEl.querySelector('.slot-stage-win');
+        if (!winEl) return;
+        winEl.classList.remove('show');
+        winEl.innerHTML = '';
     }
 
     function buildSlotPickers() {
@@ -894,6 +961,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSlotSpin.disabled = true;
         slotResultEl.textContent = '';
         slotPerimeter.forEach(c => c.classList.remove('slot-active', 'slot-final-win', 'slot-final-lose'));
+        clearStageWin();
+        setStageSpinning(true);
 
         let data;
         try {
@@ -907,12 +976,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             slotResultEl.textContent = 'Netzwerkfehler';
             slotSpinning = false;
+            setStageSpinning(false);
             btnSlotSpin.disabled = false;
             return;
         }
         if (!data.success) {
             slotResultEl.textContent = data.error || 'Fehler';
             slotSpinning = false;
+            setStageSpinning(false);
             updateSlotCost();
             return;
         }
@@ -925,16 +996,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `Spin ${i + 1}/${data.spins.length} für ${selLabel} …`
                 : `Spin für ${selLabel} …`;
             const finalEl = await spinAnimation(sp.landing);
+            setStageSpinning(false);
             finalEl.classList.remove('slot-active');
             const isNuke   = sp.outcome === 'nuke';
             const isCherry = sp.outcome === 'cherry';
             finalEl.classList.add(sp.win ? 'slot-final-win' : 'slot-final-lose');
             if (sp.win) {
                 spawnSlotConfetti();
+                showStageWin(sp.landing);
             } else if (isNuke) {
                 slotResultEl.textContent = `☢️ Atomschlag! ${selLabel} verloren …`;
             } else if (isCherry) {
-                slotResultEl.textContent = `🍒 Glück gehabt: Einsatz zurück (${sp.payout} Punkte)`;
+                slotResultEl.textContent = `🍒 Cherry Bonus! Einsatz zurück (${sp.payout} Punkte)`;
                 showCherryRefundOverlay();
             }
             // Free-spin bonus is awarded only on losses; show it AFTER the lose feedback.
@@ -949,17 +1022,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const net = data.net;
-        const sign = net >= 0 ? '+' : '';
         const freeNote = data.used_free_spin ? ' 🤩 (gratis)' : '';
+        const anyCherry = Array.isArray(data.spins) && data.spins.some(s => s.outcome === 'cherry');
         slotResultEl.textContent = net > 0
-            ? `🎉 Gewonnen!${freeNote} ${sign}${net} Punkte (Auszahlung: ${data.total_payout})`
-            : (data.used_free_spin
-                ? `Free Spin verbraucht. Auszahlung: ${data.total_payout}`
-                : `Verloren: ${sign}${net} Punkte`);
+            ? `🎉 Gewonnen!${freeNote} Auszahlung: ${data.total_payout} Punkte`
+            : (anyCherry
+                ? `🍒 Cherry Bonus! Einsatz zurück (${data.total_payout} Punkte)`
+                : (data.used_free_spin
+                    ? `Free Spin verbraucht. Try again!`
+                    : `Try again!`));
         slotConfig.balance = data.balance;
         slotFreeSpins = data.free_spins || 0;
         updateSlotBalanceLabel();
         slotSpinning = false;
+        setStageSpinning(false);
         updateSlotCost();
     });
 
