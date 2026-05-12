@@ -171,7 +171,7 @@ if (file_exists($db_file)) {
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>
-                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.11</div>
+                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.12</div>
             </main>
 
             <!-- CHALLENGE OVERLAY -->

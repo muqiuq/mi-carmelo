@@ -32,8 +32,8 @@ const SLOT_FREESPIN       = '🤩';   // bonus reward overlay — awards a free 
 const SLOT_BASE_COST      = 200;
 const SLOT_ALLOWED_FACTOR = [1, 2, 5];
 // One spin per click. Picking 2 fruits costs twice as much but raises the hit chance.
-const SLOT_WIN_PROB_PCT_1 = 20;     // hit chance when 1 fruit selected (RTP ≈ 0.9 with cherry)
-const SLOT_WIN_PROB_PCT_2 = 40;     // hit chance when 2 fruits selected (RTP ≈ 0.9 with cherry)
+const SLOT_WIN_PROB_PCT_1 = 21;     // hit chance when 1 fruit selected (RTP ≈ 0.95 incl. cherry+freespin)
+const SLOT_WIN_PROB_PCT_2 = 44;     // hit chance when 2 fruits selected (RTP ≈ 0.96 incl. cherry+freespin)
 const SLOT_PAYOUT_MULT    = 4;      // win returns 4 * bet → net +3 * bet
 const SLOT_CHERRY_LOSS_PCT= 10;     // when losing, chance to land on 🍒 → refund (full cost)
 const SLOT_NUKE_LOSS_PCT  = 12;     // when losing (and not cherry), chance to land on ☢️
