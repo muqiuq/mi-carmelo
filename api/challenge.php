@@ -241,6 +241,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         exit;
     }
 
+    // Listen-and-write (Hörverständnis): delegate to api/listen.php
+    if ($type === 'listen') {
+        require_once __DIR__ . '/listen.php';
+        $game_config = require __DIR__ . '/../data/game_config.php';
+        $questions = generateListenChallenge($pdo, (int)$_SESSION['user_id'], $game_config);
+        if (empty($questions)) {
+            echo json_encode(['success' => false, 'error' => 'No questions available']);
+            exit;
+        }
+        echo json_encode([
+            'success'   => true,
+            'questions' => $questions,
+            'type'      => 'listen',
+        ]);
+        exit;
+    }
+
     // Clock challenge: 3 random analog-clock questions, no vocabulary lookup needed
     if ($type === 'clock') {
         $stmt = $pdo->prepare("SELECT question_set FROM users WHERE id = ?");
@@ -619,6 +636,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         'explanation' => $parsed['explanation'] ?? null,
     ]);
     exit;
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'check_listen_answer') {
+    // Grade one listen-and-write answer (no streak/diamond effects here —
+    // those happen in 'submit'). Returns tier + (revealed) target when resolved.
+    require_once __DIR__ . '/listen.php';
+    $game_config = require __DIR__ . '/../data/game_config.php';
+    $data = json_decode(file_get_contents('php://input'), true) ?: [];
+    $id          = (string)($data['id']          ?? '');
+    $user_answer = (string)($data['user_answer'] ?? '');
+    $attempts    = (int)   ($data['attempts']    ?? 1);
+    $skip        = !empty($data['skip']);
+    if ($id === '') {
+        echo json_encode(['error' => 'Missing id']);
+        exit;
+    }
+    $res = gradeListenAnswer($pdo, $game_config, $id, $user_answer, $attempts, $skip);
+    echo json_encode($res);
+    exit;
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
     $game_config = require __DIR__ . '/../data/game_config.php';
     
@@ -643,7 +677,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     foreach ($results as $res) {
         $q_hash = $res['id'];
         $attempts = (int)$res['attempts'];
-        
+
+        // Listen-and-write: custom scoring tiers, custom streak rule.
+        if (strncmp($q_hash, 'listen_', 7) === 0) {
+            require_once __DIR__ . '/listen.php';
+            $skip = !empty($res['skip']);
+            $user_answer = (string)($res['answer'] ?? '');
+            $g = gradeListenAnswer($pdo, $game_config, $q_hash, $user_answer, $attempts, $skip);
+            $points_gained += (int)$g['points'];
+            // Streak only extends on a perfect first-try exact match.
+            if ($g['tier'] === 'exact' && (int)$g['attempts'] === 1) {
+                $streak++;
+            }
+            if ($streak >= $game_config['correct_words_for_diamond']) {
+                $diamonds++;
+                $streak = 0;
+                if ($diamonds > 0 && $diamonds % $game_config['diamonds_for_star'] === 0) {
+                    $stars++;
+                }
+            }
+            applyListenStats($pdo, (int)$_SESSION['user_id'], (string)$g['tier'], (int)$g['attempts']);
+            continue;
+        }
+
         // Points calculation via config
         if ($attempts === 1) {
             $points_gained += $game_config['points_first_try'];

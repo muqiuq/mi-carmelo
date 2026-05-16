@@ -148,6 +148,7 @@ if (file_exists($db_file)) {
                     <button id="btn-feed" class="btn btn-warning btn-lg m-2">Alimentar</button>
                     <button id="btn-clock" class="btn btn-secondary btn-lg m-2" title="Clock challenge">🕐</button>
                     <button id="btn-verb" class="btn btn-success btn-lg m-2" title="Verb conjugation">📝</button>
+                    <button id="btn-listen" class="btn btn-outline-info btn-lg m-2" title="Hörverständnis">🎧</button>
                     <button id="btn-fiesta" class="btn btn-danger btn-lg m-2 d-none">🎉 Fiesta</button>
                     <button id="btn-shop" class="btn btn-outline-primary btn-lg m-2">Shop</button>
                     <button id="btn-slot" class="btn btn-outline-warning btn-lg m-2" title="Mini Slot">🎰</button>
@@ -171,7 +172,7 @@ if (file_exists($db_file)) {
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>
-                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.12</div>
+                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.13</div>
             </main>
 
             <!-- CHALLENGE OVERLAY -->
@@ -193,7 +194,13 @@ if (file_exists($db_file)) {
                                     <input type="text" id="challenge-answer" class="form-control form-control-lg text-center" placeholder="Your answer" autocomplete="off">
                                 </div>
                                 <div id="challenge-mc-options" class="d-grid gap-2 mb-3 d-none"></div>
+                                <div id="challenge-listen" class="text-center mb-3 d-none">
+                                    <button type="button" id="btn-listen-play" class="btn btn-primary btn-lg rounded-circle" style="width:96px;height:96px;font-size:2.2rem;">▶️</button>
+                                    <input type="text" id="challenge-listen-answer" class="form-control form-control-lg text-center mt-3" placeholder="Tippe was du hörst" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+                                    <div id="challenge-listen-reveal" class="alert alert-info mt-2 d-none"></div>
+                                </div>
                                 <button type="submit" id="btn-challenge-submit" class="btn btn-primary btn-lg w-100">Check</button>
+                                <button type="button" id="btn-listen-skip" class="btn btn-outline-secondary w-100 mt-2 d-none">⏭️ Überspringen</button>
                             </form>
 
                             <div id="challenge-feedback" class="mt-4 p-3 rounded d-none text-center">

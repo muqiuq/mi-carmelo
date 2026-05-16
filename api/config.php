@@ -312,6 +312,27 @@ try {
     // Column already exists
 }
 
+// Migration: listen-and-write stats columns on users
+try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_total INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_correct_first_try INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_correct_with_typo INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_skipped INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+
+// Migration: listen_questions table — stores target text server-side so the
+// client never receives the answer until skip/reveal.
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS listen_questions (
+            id TEXT PRIMARY KEY,
+            target TEXT NOT NULL,
+            lang TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+} catch (PDOException $e) {
+    // Ignore
+}
+
 // Ensure audio directory exists
 $audio_dir = __DIR__ . '/../audio';
 if (!is_dir($audio_dir)) {

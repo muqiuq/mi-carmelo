@@ -59,6 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnTtsPlay = document.getElementById('btn-tts-play');
     const feedCountdown = document.getElementById('feed-countdown');
 
+    // Listen-and-write (Hörverständnis) selectors
+    const challengeListen = document.getElementById('challenge-listen');
+    const inputChallengeListenAnswer = document.getElementById('challenge-listen-answer');
+    const btnListenPlay = document.getElementById('btn-listen-play');
+    const btnListenSkip = document.getElementById('btn-listen-skip');
+    const challengeListenReveal = document.getElementById('challenge-listen-reveal');
+    let currentListenAudio = null;
+
     // Countdown timer
     let countdownInterval = null;
 
@@ -1438,6 +1446,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 shtml += '<div class="text-muted small">Noch nicht gespielt.</div>';
             }
             statsDiv.innerHTML += shtml;
+
+            // Listen-and-write (Hörverständnis) lifetime stats
+            const lTotal   = Number(d.listen_total || 0);
+            const lFirst   = Number(d.listen_correct_first_try || 0);
+            const lTypo    = Number(d.listen_correct_with_typo || 0);
+            const lSkipped = Number(d.listen_skipped || 0);
+            let lhtml = '<h6 class="mt-3">🎧 Hörverständnis</h6>';
+            if (lTotal > 0) {
+                const pct = lTotal > 0 ? Math.round((lFirst / lTotal) * 100) : 0;
+                lhtml += `<div class="small">Gesamt: <strong>${lTotal}</strong> &nbsp; · &nbsp; ✅ 1. Versuch exakt: <strong>${lFirst}</strong> (${pct}%) &nbsp; · &nbsp; ✍️ 1. Versuch mit Tippfehler: <strong>${lTypo}</strong> &nbsp; · &nbsp; ⏭️ übersprungen: <strong>${lSkipped}</strong></div>`;
+            } else {
+                lhtml += '<div class="text-muted small">Noch nicht gehört.</div>';
+            }
+            statsDiv.innerHTML += lhtml;
         }
     }
 
@@ -2195,7 +2217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function startChallenge(type) {
         challengeType = type;
 
-        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive'), clock: document.getElementById('btn-clock'), verb: document.getElementById('btn-verb') };
+        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive'), clock: document.getElementById('btn-clock'), verb: document.getElementById('btn-verb'), listen: document.getElementById('btn-listen') };
         const triggerBtn = btnMap[type] || null;
         let originalHtml = null;
         if (triggerBtn) {
@@ -2233,7 +2255,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuestionAttempts = 0;
         
         challengeProgress.textContent = `Question ${currentQuestionIndex + 1} of ${currentChallenge.length}`;
-        challengeQuestion.textContent = q.question;
+        challengeQuestion.textContent = q.type === 'listen' ? 'Hörverständnis' : q.question;
         // Verb questions ship a multi-line label; render line breaks
         if (q.type === 'verb') {
             challengeQuestion.style.whiteSpace = 'pre-line';
@@ -2261,6 +2283,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (q.type === 'verb') {
             qLabel.textContent = '📝 Konjugiere und bilde einen Satz:';
             qLabel.classList.remove('d-none');
+        } else if (q.type === 'listen') {
+            qLabel.textContent = '🎧 Hör zu und schreibe was du hörst:';
+            qLabel.classList.remove('d-none');
         } else {
             qLabel.textContent = '';
             qLabel.classList.add('d-none');
@@ -2273,6 +2298,32 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (clockFace) {
             clockFace.innerHTML = '';
             clockFace.classList.add('d-none');
+        }
+
+        // Listen-and-write UI: hide other inputs, prepare audio + input.
+        if (q.type === 'listen') {
+            textInput.classList.add('d-none');
+            inputChallengeAnswer.removeAttribute('required');
+            mcOptions.classList.add('d-none');
+            challengeListen.classList.remove('d-none');
+            inputChallengeListenAnswer.value = '';
+            inputChallengeListenAnswer.disabled = false;
+            inputChallengeListenAnswer.setAttribute('required', '');
+            challengeListenReveal.classList.add('d-none');
+            challengeListenReveal.textContent = '';
+            btnListenSkip.classList.add('d-none');
+            btnChallengeSubmit.classList.remove('d-none');
+            // Prepare audio (lazy — first click triggers load).
+            try { if (currentListenAudio) { currentListenAudio.pause(); } } catch (_) {}
+            currentListenAudio = new Audio(q.audio_url);
+            currentListenAudio.preload = 'auto';
+            hideFeedback();
+            setTimeout(() => inputChallengeListenAnswer.focus(), 100);
+            return;
+        } else {
+            challengeListen.classList.add('d-none');
+            btnListenSkip.classList.add('d-none');
+            inputChallengeListenAnswer.removeAttribute('required');
         }
 
         if (q.options && q.options.length > 0) {
@@ -2367,6 +2418,53 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         
         const q = currentChallenge[currentQuestionIndex];
+
+        // Listen-and-write: server grades the answer (target is never sent to client).
+        if (q.type === 'listen') {
+            const userAnswer = inputChallengeListenAnswer.value.trim();
+            if (userAnswer === '') return;
+            currentQuestionAttempts++;
+            inputChallengeListenAnswer.disabled = true;
+            btnChallengeSubmit.classList.add('d-none');
+            let graded = null;
+            try {
+                const res = await fetch('api/challenge.php?action=check_listen_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id:          q.id,
+                        user_answer: userAnswer,
+                        attempts:    currentQuestionAttempts,
+                        skip:        false,
+                    }),
+                });
+                graded = await res.json();
+            } catch (err) {
+                console.error('Listen check failed:', err);
+            }
+            const tier = graded && graded.tier;
+            if (tier === 'exact') {
+                challengeResults.push({ id: q.id, attempts: currentQuestionAttempts, answer: userAnswer });
+                showFeedback('success', 'Richtig! 🎉', '', '');
+                btnChallengeNext.classList.remove('d-none');
+                btnChallengeNext.focus();
+            } else if (tier === 'case_punct') {
+                challengeResults.push({ id: q.id, attempts: currentQuestionAttempts, answer: userAnswer });
+                showFeedback('warning', 'Fast! ✍️', `Achte auf Groß-/Kleinschreibung. Richtig: ${graded.target}`, '');
+                btnChallengeNext.classList.remove('d-none');
+                btnChallengeNext.focus();
+            } else {
+                // wrong — let user retry; after 3 wrongs, offer skip.
+                showFeedback('danger', 'Falsch 😔', 'Hör nochmal genau hin und probiere es erneut.', '');
+                btnChallengeRepeat.classList.remove('d-none');
+                btnChallengeRepeat.focus();
+                if (currentQuestionAttempts >= 3) {
+                    btnListenSkip.classList.remove('d-none');
+                }
+            }
+            return;
+        }
+
         const userAnswer = inputChallengeAnswer.value.trim().toLowerCase();
         
         // Validation logic for multiple generic answers
@@ -2546,7 +2644,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     btnChallengeRepeat.addEventListener('click', () => {
         const q = currentChallenge[currentQuestionIndex];
-        if (q.options && q.options.length > 0) {
+        if (q.type === 'listen') {
+            // Same question; user retries — keep attempt counter, clear input.
+            inputChallengeListenAnswer.value = '';
+            inputChallengeListenAnswer.disabled = false;
+            btnChallengeSubmit.classList.remove('d-none');
+            inputChallengeListenAnswer.focus();
+        } else if (q.options && q.options.length > 0) {
             // Re-shuffle and re-render MC options
             const mcOptions = document.getElementById('challenge-mc-options');
             mcOptions.innerHTML = '';
@@ -2636,6 +2740,64 @@ document.addEventListener('DOMContentLoaded', () => {
         btnVerb.addEventListener('click', () => {
             if (btnVerb.disabled) return;
             startChallenge('verb');
+        });
+    }
+
+    // --- LISTEN-AND-WRITE (Hörverständnis) ---
+    const btnListen = document.getElementById('btn-listen');
+    if (btnListen) {
+        btnListen.addEventListener('click', () => {
+            if (btnListen.disabled) return;
+            startChallenge('listen');
+        });
+    }
+
+    if (btnListenPlay) {
+        btnListenPlay.addEventListener('click', () => {
+            if (!currentListenAudio) return;
+            try {
+                currentListenAudio.currentTime = 0;
+                const p = currentListenAudio.play();
+                if (p && typeof p.catch === 'function') {
+                    p.catch(err => console.warn('Listen audio play failed:', err));
+                }
+            } catch (err) {
+                console.warn('Listen audio play error:', err);
+            }
+        });
+    }
+
+    if (btnListenSkip) {
+        btnListenSkip.addEventListener('click', async () => {
+            const q = currentChallenge[currentQuestionIndex];
+            if (!q || q.type !== 'listen') return;
+            btnListenSkip.disabled = true;
+            try {
+                const res = await fetch('api/challenge.php?action=check_listen_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id:          q.id,
+                        user_answer: '',
+                        attempts:    Math.max(3, currentQuestionAttempts),
+                        skip:        true,
+                    }),
+                });
+                const graded = await res.json();
+                const target = (graded && graded.target) ? graded.target : '';
+                challengeResults.push({ id: q.id, attempts: Math.max(3, currentQuestionAttempts), answer: '', skip: true });
+                challengeListenReveal.textContent = target ? `Richtige Lösung: ${target}` : 'Übersprungen.';
+                challengeListenReveal.classList.remove('d-none');
+                btnListenSkip.classList.add('d-none');
+                btnChallengeRepeat.classList.add('d-none');
+                showFeedback('info', 'Übersprungen ⏭️', target ? `Lösung: ${target}` : '', '');
+                btnChallengeNext.classList.remove('d-none');
+                btnChallengeNext.focus();
+            } catch (err) {
+                console.error('Listen skip failed:', err);
+            } finally {
+                btnListenSkip.disabled = false;
+            }
         });
     }
 

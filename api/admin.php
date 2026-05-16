@@ -84,6 +84,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         } catch (PDOException $e) { /* table missing until first spin */ }
 
+        // Listen-and-write (Hörverständnis) lifetime stats
+        $listen_total = 0; $listen_first = 0; $listen_typo = 0; $listen_skipped = 0;
+        try {
+            $lstmt = $pdo->prepare("SELECT listen_total, listen_correct_first_try, listen_correct_with_typo, listen_skipped FROM users WHERE id = ?");
+            $lstmt->execute([$user_id]);
+            if ($lrow = $lstmt->fetch()) {
+                $listen_total   = (int)($lrow['listen_total']             ?? 0);
+                $listen_first   = (int)($lrow['listen_correct_first_try'] ?? 0);
+                $listen_typo    = (int)($lrow['listen_correct_with_typo'] ?? 0);
+                $listen_skipped = (int)($lrow['listen_skipped']           ?? 0);
+            }
+        } catch (PDOException $e) { /* columns missing on very old DB */ }
+
         echo json_encode([
             'success'   => true,
             'knowledge' => $knowledge,
@@ -93,6 +106,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'verb_incorrect' => $verb_incorrect,
             'slot_played' => $slot_played,
             'slot_won'    => $slot_won,
+            'listen_total'                  => $listen_total,
+            'listen_correct_first_try'      => $listen_first,
+            'listen_correct_with_typo'      => $listen_typo,
+            'listen_skipped'                => $listen_skipped,
         ]);
     } elseif ($action === 'list_question_files') {
         $data_dir = __DIR__ . '/../data';

@@ -11,6 +11,14 @@ return [
     'points_second_try' => 5,
     'points_third_plus_try' => 1,
 
+    // Listen-and-write (Hörverständnis) scoring tiers
+    // Exact = perfect spelling. Typo = only case/punctuation differences.
+    'points_listen_first_exact'    => 20,
+    'points_listen_first_typo'     => 15,
+    'points_listen_second_exact'   => 10,
+    'points_listen_second_typo'    => 5,
+    'points_listen_third_or_skip'  => 1,
+
     // Rewards thresholds
     'correct_words_for_diamond' => 10,
     'diamonds_for_star' => 10,
