@@ -2363,7 +2363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Disable all MC buttons
         mcOptions.querySelectorAll('button').forEach(btn => {
             btn.disabled = true;
-            const isCorrect = q.answers.some(a => a.trim().toLowerCase() === btn.textContent.trim().toLowerCase());
+            const isCorrect = q.answers.some(a => a.trim() === btn.textContent.trim());
             if (isCorrect) {
                 btn.classList.remove('btn-outline-primary');
                 btn.classList.add('btn-success');
@@ -2373,7 +2373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const isCorrect = q.answers.some(a => a.trim().toLowerCase() === selected.trim().toLowerCase());
+        const isCorrect = q.answers.some(a => a.trim() === selected.trim());
 
         if (isCorrect) {
             challengeResults.push({ id: q.id, attempts: currentQuestionAttempts });
@@ -2465,7 +2465,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const userAnswer = inputChallengeAnswer.value.trim().toLowerCase();
+        const userAnswerRaw = inputChallengeAnswer.value.trim();
+        const userAnswer = userAnswerRaw; // case-sensitive for vocab
         
         // Validation logic for multiple generic answers
         let isCorrect;
@@ -2485,7 +2486,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const userN = norm(inputChallengeAnswer.value);
             isCorrect = userN.length > 0 && q.answers.some(a => norm(a) === userN);
         } else {
-            isCorrect = q.answers.some(a => a.trim().toLowerCase() === userAnswer);
+            isCorrect = q.answers.some(a => a.trim() === userAnswer);
         }
         
         currentQuestionAttempts++;
