@@ -254,6 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
             'success'   => true,
             'questions' => $questions,
             'type'      => 'listen',
+            'mc_debug'  => listen_getLastMcDebug(),
         ]);
         exit;
     }

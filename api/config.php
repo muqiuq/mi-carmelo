@@ -348,6 +348,9 @@ try {
     // Ignore
 }
 
+// Migration: add options_json column to listen_questions (for MC sentence mode).
+try { $pdo->exec("ALTER TABLE listen_questions ADD COLUMN options_json TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+
 // Ensure audio directory exists
 $audio_dir = __DIR__ . '/../audio';
 if (!is_dir($audio_dir)) {

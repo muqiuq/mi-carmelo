@@ -2318,26 +2318,59 @@ document.addEventListener('DOMContentLoaded', () => {
         if (q.type === 'listen') {
             textInput.classList.add('d-none');
             inputChallengeAnswer.removeAttribute('required');
-            mcOptions.classList.add('d-none');
             challengeListen.classList.remove('d-none');
-            inputChallengeListenAnswer.value = '';
-            inputChallengeListenAnswer.disabled = false;
-            inputChallengeListenAnswer.setAttribute('required', '');
             challengeListenReveal.classList.add('d-none');
             challengeListenReveal.textContent = '';
             btnListenSkip.classList.add('d-none');
-            btnChallengeSubmit.classList.remove('d-none');
             // Prepare audio (lazy — first click triggers load).
             try { if (currentListenAudio) { currentListenAudio.pause(); } } catch (_) {}
             currentListenAudio = new Audio(q.audio_url);
             currentListenAudio.preload = 'auto';
             hideFeedback();
-            setTimeout(() => inputChallengeListenAnswer.focus(), 100);
+
+            const isMc = Array.isArray(q.options) && q.options.length > 0;
+            if (isMc) {
+                // MC sentence: hide typed input + submit, render 4 option buttons.
+                // Move the MC options block below the listen play button for this mode.
+                if (mcOptions.parentNode === challengeListen.parentNode
+                    && mcOptions.previousElementSibling !== challengeListen) {
+                    challengeListen.parentNode.insertBefore(mcOptions, challengeListen.nextSibling);
+                }
+                inputChallengeListenAnswer.classList.add('d-none');
+                inputChallengeListenAnswer.removeAttribute('required');
+                inputChallengeListenAnswer.value = '';
+                btnChallengeSubmit.classList.add('d-none');
+                mcOptions.classList.remove('d-none');
+                mcOptions.innerHTML = '';
+                q.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-outline-primary btn-lg';
+                    btn.textContent = opt;
+                    btn.addEventListener('click', () => handleListenMcSelection(opt, btn, mcOptions));
+                    mcOptions.appendChild(btn);
+                });
+            } else {
+                // Single-word listen: typed-input mode (today's behaviour).
+                mcOptions.classList.add('d-none');
+                mcOptions.innerHTML = '';
+                inputChallengeListenAnswer.classList.remove('d-none');
+                inputChallengeListenAnswer.value = '';
+                inputChallengeListenAnswer.disabled = false;
+                inputChallengeListenAnswer.setAttribute('required', '');
+                btnChallengeSubmit.classList.remove('d-none');
+                setTimeout(() => inputChallengeListenAnswer.focus(), 100);
+            }
             return;
         } else {
             challengeListen.classList.add('d-none');
             btnListenSkip.classList.add('d-none');
             inputChallengeListenAnswer.removeAttribute('required');
+            // Restore the MC options block to its default position (above the listen block).
+            if (mcOptions.parentNode === challengeListen.parentNode
+                && mcOptions.nextElementSibling !== challengeListen) {
+                challengeListen.parentNode.insertBefore(mcOptions, challengeListen);
+            }
         }
 
         if (q.options && q.options.length > 0) {
@@ -2399,6 +2432,55 @@ document.addEventListener('DOMContentLoaded', () => {
             showFeedback('danger', "Incorrect 😔", `The correct answer was: ${correctAnswers}`, q.answers[0]);
             btnChallengeRepeat.classList.remove('d-none');
             btnChallengeRepeat.focus();
+        }
+    }
+
+    async function handleListenMcSelection(selected, btn, mcOptions) {
+        const q = currentChallenge[currentQuestionIndex];
+        if (!q || q.type !== 'listen') return;
+        currentQuestionAttempts++;
+        hideFeedback();
+        // Disable just the clicked button briefly while we grade.
+        btn.disabled = true;
+        let graded = null;
+        try {
+            const res = await fetch('api/challenge.php?action=check_listen_answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id:          q.id,
+                    user_answer: selected,
+                    attempts:    currentQuestionAttempts,
+                    skip:        false,
+                }),
+            });
+            graded = await res.json();
+        } catch (err) {
+            console.error('Listen MC check failed:', err);
+        }
+        const tier = graded && graded.tier;
+        if (tier === 'exact') {
+            // Lock all buttons, color correct green.
+            mcOptions.querySelectorAll('button').forEach(b => {
+                b.disabled = true;
+                if (b === btn) {
+                    b.classList.remove('btn-outline-primary', 'btn-danger');
+                    b.classList.add('btn-success');
+                }
+            });
+            challengeResults.push({ id: q.id, attempts: currentQuestionAttempts, answer: selected });
+            showFeedback('success', 'Richtig! 🎉', '', '');
+            btnChallengeNext.classList.remove('d-none');
+            btnChallengeNext.focus();
+        } else {
+            // Wrong — flag this option red but keep all options active for retry.
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-danger');
+            mcOptions.querySelectorAll('button').forEach(b => { b.disabled = false; });
+            showFeedback('danger', 'Falsch 😔', "Hör nochmal genau hin und versuch's nochmal.", '');
+            if (currentQuestionAttempts >= 3) {
+                btnListenSkip.classList.remove('d-none');
+            }
         }
     }
     
