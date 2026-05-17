@@ -663,7 +663,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     $type = $data['type'] ?? 'pet';
     
     // Get current user state
-    $stmt = $pdo->prepare("SELECT total_points, diamonds, stars, correct_streak_count FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT total_points, coins, diamonds, stars, correct_streak_count FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
     
@@ -765,23 +765,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         }
     }
     
-    // Update User
+    // Update User — every learning point reward also mints an equal number of 🪙 coins.
     $new_points = $user['total_points'] + $points_gained;
+    $coins_gained = $points_gained; // 1:1 with points for learning activities
+    $new_coins = (int)$user['coins'] + $coins_gained;
     
     if ($type === 'feed') {
-        $upd = $pdo->prepare("UPDATE users SET total_points = ?, diamonds = ?, stars = ?, correct_streak_count = ?, last_fed = CURRENT_TIMESTAMP WHERE id = ?");
-        $upd->execute([$new_points, $diamonds, $stars, $streak, $_SESSION['user_id']]);
+        $upd = $pdo->prepare("UPDATE users SET total_points = ?, coins = ?, diamonds = ?, stars = ?, correct_streak_count = ?, last_fed = CURRENT_TIMESTAMP WHERE id = ?");
+        $upd->execute([$new_points, $new_coins, $diamonds, $stars, $streak, $_SESSION['user_id']]);
     } elseif ($type === 'revive') {
-        $upd = $pdo->prepare("UPDATE users SET total_points = ?, diamonds = ?, stars = ?, correct_streak_count = ?, is_dead = 0, last_fed = NULL WHERE id = ?");
-        $upd->execute([$new_points, $diamonds, $stars, $streak, $_SESSION['user_id']]);
+        $upd = $pdo->prepare("UPDATE users SET total_points = ?, coins = ?, diamonds = ?, stars = ?, correct_streak_count = ?, is_dead = 0, last_fed = NULL WHERE id = ?");
+        $upd->execute([$new_points, $new_coins, $diamonds, $stars, $streak, $_SESSION['user_id']]);
     } elseif ($type === 'fiesta') {
-        // Fiesta: award exactly 1 point, update last_fiesta
+        // Fiesta: award exactly 1 point and 1 coin, update last_fiesta
+        $points_gained = 1;
+        $coins_gained = 1;
         $new_points = (int)$user['total_points'] + 1;
-        $upd = $pdo->prepare("UPDATE users SET total_points = ?, last_fiesta = CURRENT_TIMESTAMP WHERE id = ?");
-        $upd->execute([$new_points, $_SESSION['user_id']]);
+        $new_coins = (int)$user['coins'] + 1;
+        $upd = $pdo->prepare("UPDATE users SET total_points = ?, coins = ?, last_fiesta = CURRENT_TIMESTAMP WHERE id = ?");
+        $upd->execute([$new_points, $new_coins, $_SESSION['user_id']]);
     } else {
-        $upd = $pdo->prepare("UPDATE users SET total_points = ?, diamonds = ?, stars = ?, correct_streak_count = ? WHERE id = ?");
-        $upd->execute([$new_points, $diamonds, $stars, $streak, $_SESSION['user_id']]);
+        $upd = $pdo->prepare("UPDATE users SET total_points = ?, coins = ?, diamonds = ?, stars = ?, correct_streak_count = ? WHERE id = ?");
+        $upd->execute([$new_points, $new_coins, $diamonds, $stars, $streak, $_SESSION['user_id']]);
     }
     
     $earned_star = ($stars > $initial_stars);
@@ -794,6 +799,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
 
     $response_stats = [
         'total_points' => $new_points,
+        'coins' => $new_coins,
+        'coins_gained' => $coins_gained,
+        'points_gained' => $points_gained,
         'diamonds' => $diamonds,
         'stars' => $stars,
         'correct_streak_count' => $streak,

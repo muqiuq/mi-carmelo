@@ -4,9 +4,13 @@
  *
  * Mechanics
  * ---------
- *  Cost per selected fruit = 100 * factor   (factor ∈ {1,2,5})
+ *  Cost per selected fruit = 100 🪙 * factor   (factor ∈ {1,2,5})
  *  Each selected fruit is one independent spin.
  *  P(win) = 0.20, payout multiplier = 4 → expected return per bet = 0.8 (RTP 80%).
+ *
+ *  Wins additionally grant ceil(coin_payout / 4) in 🏆 points so spending coins
+ *  in the casino still contributes a (smaller) point reward toward the
+ *  long-term learning score. Cherry refunds also include this points bonus.
  *
  * The user's fruit selection has NO influence on the outcome:
  *  - the engine first decides win/lose at fixed probability
@@ -29,7 +33,7 @@ const SLOT_CHERRY         = '🍒';   // bonus tile — not selectable; refunds 
 const SLOT_SELECTABLE     = ['🍋', '🍇', '🍉', '🍓', '🔔']; // SLOT_FRUITS without cherry
 const SLOT_NUKE           = '☢️';   // radioactive tile — landing here is always a loss
 const SLOT_FREESPIN       = '🤩';   // bonus reward overlay — awards a free spin
-const SLOT_BASE_COST      = 200;
+const SLOT_BASE_COST      = 100;
 const SLOT_ALLOWED_FACTOR = [1, 2, 5];
 // One spin per click. Picking 2 fruits costs twice as much but raises the hit chance.
 const SLOT_WIN_PROB_PCT_1 = 21;     // hit chance when 1 fruit selected (RTP ≈ 0.95 incl. cherry+freespin)
@@ -46,12 +50,13 @@ if (!isset($_SESSION['slot_free_spins'])) $_SESSION['slot_free_spins'] = 0;
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'info') {
-    $stmt = $pdo->prepare("SELECT total_points FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT total_points, coins FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $row = $stmt->fetch();
     echo json_encode([
         'success'           => true,
-        'balance'           => (int)($row['total_points'] ?? 0),
+        'balance'           => (int)($row['coins'] ?? 0),
+        'points_balance'    => (int)($row['total_points'] ?? 0),
         'fruits'            => SLOT_FRUITS,
         'selectable_fruits' => SLOT_SELECTABLE,
         'cherry'            => SLOT_CHERRY,
@@ -61,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'info') {
         'base_cost'         => SLOT_BASE_COST,
         'allowed_factor'    => SLOT_ALLOWED_FACTOR,
         'payout_mult'       => SLOT_PAYOUT_MULT,
+        'currency'          => 'coins',
     ]);
     exit;
 }
@@ -99,20 +105,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'play') {
     try {
         $pdo->beginTransaction();
 
-        // Ensure stats table exists (cheap idempotent call)
+        // Ensure stats table exists (cheap idempotent call).
+        // Note: legacy total_played/total_won remain point-denominated for backward
+        // compatibility with historical numbers; coin economy is tracked in the
+        // total_coins_played/total_coins_won columns (added via ALTER TABLE migration).
         $pdo->exec("CREATE TABLE IF NOT EXISTS user_slot_stats (
             user_id INTEGER PRIMARY KEY,
             total_played INTEGER NOT NULL DEFAULT 0,
-            total_won    INTEGER NOT NULL DEFAULT 0
+            total_won    INTEGER NOT NULL DEFAULT 0,
+            total_coins_played INTEGER NOT NULL DEFAULT 0,
+            total_coins_won    INTEGER NOT NULL DEFAULT 0
         )");
 
-        $stmt = $pdo->prepare("SELECT total_points FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT coins FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $balance = (int)$stmt->fetchColumn();
 
         if ($balance < $totalCost) {
             $pdo->rollBack();
-            echo json_encode(['success' => false, 'error' => 'Nicht genug Points']);
+            echo json_encode(['success' => false, 'error' => 'Nicht genug 🪙 Coins']);
             exit;
         }
 
@@ -121,9 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'play') {
             $_SESSION['slot_free_spins'] = max(0, (int)$_SESSION['slot_free_spins'] - 1);
         }
 
-        // Deduct cost up front
+        // Deduct cost up front (in coins)
         if ($totalCost > 0) {
-            $upd = $pdo->prepare("UPDATE users SET total_points = total_points - ? WHERE id = ?");
+            $upd = $pdo->prepare("UPDATE users SET coins = coins - ? WHERE id = ?");
             $upd->execute([$totalCost, $_SESSION['user_id']]);
         }
 
@@ -173,33 +184,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'play') {
         ]];
         $totalPayout = $payout;
 
-        if ($totalPayout > 0) {
-            $upd = $pdo->prepare("UPDATE users SET total_points = total_points + ? WHERE id = ?");
-            $upd->execute([$totalPayout, $_SESSION['user_id']]);
+        // Wins (and cherry refunds) additionally grant points = ceil(payout / 4)
+        // so the casino still contributes a smaller learning score.
+        $pointsBonus = 0;
+        if ($totalPayout > 0 && ($outcome === 'win' || $outcome === 'cherry')) {
+            $pointsBonus = (int)ceil($totalPayout / 4);
         }
 
-        // Update lifetime slot stats (free spins count payout but no cost).
+        if ($totalPayout > 0) {
+            $upd = $pdo->prepare("UPDATE users SET coins = coins + ? WHERE id = ?");
+            $upd->execute([$totalPayout, $_SESSION['user_id']]);
+        }
+        if ($pointsBonus > 0) {
+            $upd = $pdo->prepare("UPDATE users SET total_points = total_points + ? WHERE id = ?");
+            $upd->execute([$pointsBonus, $_SESSION['user_id']]);
+        }
+
+        // Update lifetime slot stats.
+        // - Legacy total_played/total_won are kept untouched semantically: they continue
+        //   to record the raw bet/payout numbers per spin (now expressed in coins, since
+        //   the slot no longer touches points for the bet/payout itself). The columns are
+        //   intentionally NOT renamed per product requirement.
+        // - total_coins_played/total_coins_won are the new coin-economy counters.
         $statsUpd = $pdo->prepare(
-            "INSERT INTO user_slot_stats (user_id, total_played, total_won)
-             VALUES (?, ?, ?)
+            "INSERT INTO user_slot_stats (user_id, total_played, total_won, total_coins_played, total_coins_won)
+             VALUES (?, ?, ?, ?, ?)
              ON CONFLICT(user_id) DO UPDATE SET
-                total_played = total_played + excluded.total_played,
-                total_won    = total_won    + excluded.total_won"
+                total_played       = total_played       + excluded.total_played,
+                total_won          = total_won          + excluded.total_won,
+                total_coins_played = total_coins_played + excluded.total_coins_played,
+                total_coins_won    = total_coins_won    + excluded.total_coins_won"
         );
-        $statsUpd->execute([$_SESSION['user_id'], $totalCost, $totalPayout]);
+        $statsUpd->execute([$_SESSION['user_id'], $totalCost, $totalPayout, $totalCost, $totalPayout]);
 
         $pdo->commit();
 
-        $newBal = $pdo->prepare("SELECT total_points FROM users WHERE id = ?");
+        $newBal = $pdo->prepare("SELECT total_points, coins FROM users WHERE id = ?");
         $newBal->execute([$_SESSION['user_id']]);
+        $balRow = $newBal->fetch();
 
         echo json_encode([
             'success'        => true,
             'spins'          => $spins,
             'total_cost'     => $totalCost,
             'total_payout'   => $totalPayout,
+            'points_bonus'   => $pointsBonus,
             'net'            => $totalPayout - $totalCost,
-            'balance'        => (int)$newBal->fetchColumn(),
+            'balance'        => (int)($balRow['coins'] ?? 0),
+            'points_balance' => (int)($balRow['total_points'] ?? 0),
             'used_free_spin' => $useFree,
             'free_spins'     => (int)$_SESSION['slot_free_spins'],
         ]);

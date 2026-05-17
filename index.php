@@ -113,6 +113,13 @@ if (file_exists($db_file)) {
                             <div class="text-muted" style="font-size:0.7rem">Points</div>
                         </div>
                     </div>
+                    <div class="card text-center flex-fill" style="min-width:0">
+                        <div class="card-body py-2 px-2">
+                            <div class="fs-4">🪙</div>
+                            <div class="fw-bold" id="coin-count">0</div>
+                            <div class="text-muted" style="font-size:0.7rem">Coins</div>
+                        </div>
+                    </div>
                 </div>
             </header>
             
@@ -172,7 +179,7 @@ if (file_exists($db_file)) {
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>
-                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.13</div>
+                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.14</div>
             </main>
 
             <!-- CHALLENGE OVERLAY -->
@@ -290,6 +297,14 @@ if (file_exists($db_file)) {
                                     <button type="button" class="btn btn-outline-secondary btn-stat-minus" data-target="edit-user-points" data-step="25">−25</button>
                                     <input type="number" id="edit-user-points" class="form-control text-center" min="0" step="25" readonly>
                                     <button type="button" class="btn btn-outline-secondary btn-stat-plus" data-target="edit-user-points" data-step="25">+25</button>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">🪙 Coins</label>
+                                <div class="input-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-stat-minus" data-target="edit-user-coins" data-step="25">−25</button>
+                                    <input type="number" id="edit-user-coins" class="form-control text-center" min="0" step="25" readonly>
+                                    <button type="button" class="btn btn-outline-secondary btn-stat-plus" data-target="edit-user-coins" data-step="25">+25</button>
                                 </div>
                             </div>
                             <div class="mb-2">

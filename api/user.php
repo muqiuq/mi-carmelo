@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'settings' => $user]);
     } elseif ($action === 'get_stats') {
         $game_config = require __DIR__ . '/../data/game_config.php';
-        $stmt = $pdo->prepare("SELECT total_points, diamonds, stars, correct_streak_count, last_fed, is_dead, last_fiesta, pet_color FROM users WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT total_points, coins, diamonds, stars, correct_streak_count, last_fed, is_dead, last_fiesta, pet_color FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
         $stats = $stmt->fetch();
 

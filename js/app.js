@@ -307,6 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('diamond-count').textContent = stats.diamonds || 0;
         document.getElementById('star-count').textContent = stats.stars || 0;
         document.getElementById('point-count').textContent = stats.total_points || 0;
+        const coinEl = document.getElementById('coin-count');
+        if (coinEl) coinEl.textContent = stats.coins || 0;
         if (Array.isArray(stats.flower_slots)) {
             renderFlowers(stats.flower_slots);
         }
@@ -852,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSlotSpin.disabled = false;
             btnSlotSpin.textContent = '🤩 Free Spin!';
         } else {
-            slotCostEl.textContent = `Einsatz: ${cost} Punkte (${slotSelected.length} × ${slotConfig.base_cost * slotFactor})`;
+            slotCostEl.textContent = `Einsatz: ${cost} 🪙 Coins (${slotSelected.length} × ${slotConfig.base_cost * slotFactor})`;
             btnSlotSpin.disabled = false;
             btnSlotSpin.textContent = 'Spin!';
         }
@@ -860,7 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateSlotBalanceLabel() {
         const fs = slotFreeSpins > 0 ? ` &nbsp;·&nbsp; 🤩 Free Spins: <b>${slotFreeSpins}</b>` : '';
-        slotBalanceEl.innerHTML = `🏆 ${slotConfig.balance} Punkte &nbsp;·&nbsp; Gewinn: ${slotConfig.payout_mult}× Einsatz${fs}`;
+        slotBalanceEl.innerHTML = `🪙 ${slotConfig.balance} Coins &nbsp;·&nbsp; Gewinn: ${slotConfig.payout_mult}× Einsatz (+ 🏆 Bonus)${fs}`;
     }
 
     async function openSlot() {
@@ -1025,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isNuke) {
                 slotResultEl.textContent = `☢️ Atomschlag! ${selLabel} verloren …`;
             } else if (isCherry) {
-                slotResultEl.textContent = `🍒 Cherry Bonus! Einsatz zurück (${sp.payout} Punkte)`;
+                slotResultEl.textContent = `🍒 Cherry Bonus! Einsatz zurück (${sp.payout} 🪙)`;
                 showCherryRefundOverlay();
             }
             // Free-spin bonus is awarded only on losses; show it AFTER the lose feedback.
@@ -1042,16 +1044,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const net = data.net;
         const freeNote = data.used_free_spin ? ' 🤩 (gratis)' : '';
         const anyCherry = Array.isArray(data.spins) && data.spins.some(s => s.outcome === 'cherry');
-        slotResultEl.textContent = net > 0
-            ? `🎉 Gewonnen!${freeNote} Auszahlung: ${data.total_payout} Punkte`
+        const bonus = Number(data.points_bonus || 0);
+        const bonusNote = bonus > 0 ? ` &nbsp;+&nbsp;${bonus} 🏆` : '';
+        slotResultEl.innerHTML = net > 0
+            ? `🎉 Gewonnen!${freeNote} Auszahlung: ${data.total_payout} 🪙${bonusNote}`
             : (anyCherry
-                ? `🍒 Cherry Bonus! Einsatz zurück (${data.total_payout} Punkte)`
+                ? `🍒 Cherry Bonus! Einsatz zurück (${data.total_payout} 🪙${bonusNote})`
                 : (data.used_free_spin
                     ? `Free Spin verbraucht. Try again!`
                     : `Try again!`));
         slotConfig.balance = data.balance;
         slotFreeSpins = data.free_spins || 0;
         updateSlotBalanceLabel();
+        // Reflect new coin & point balances in the main status bar without a full refetch.
+        updateStatsUI({ coins: data.balance, total_points: data.points_balance });
         slotSpinning = false;
         setStageSpinning(false);
         updateSlotCost();
@@ -1116,13 +1122,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const newAdmin = document.getElementById('edit-user-isadmin').checked ? 1 : 0;
         const newPwd = document.getElementById('edit-user-password').value;
         const newPoints = parseInt(document.getElementById('edit-user-points').value, 10) || 0;
+        const newCoins = parseInt(document.getElementById('edit-user-coins').value, 10) || 0;
         const newDiamonds = parseInt(document.getElementById('edit-user-diamonds').value, 10) || 0;
         const newStars = parseInt(document.getElementById('edit-user-stars').value, 10) || 0;
         const newQuestionSet = document.getElementById('edit-user-question-set').value;
         const res = await fetch('api/admin.php?action=edit_user', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({user_id: uid, username: newName, isadmin: newAdmin, password: newPwd, total_points: newPoints, diamonds: newDiamonds, stars: newStars, question_set: newQuestionSet})
+            body: JSON.stringify({user_id: uid, username: newName, isadmin: newAdmin, password: newPwd, total_points: newPoints, coins: newCoins, diamonds: newDiamonds, stars: newStars, question_set: newQuestionSet})
         });
         const d = await res.json();
         const msg = document.getElementById('user-detail-msg');
@@ -1376,6 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-user-password').value = '';
         document.getElementById('edit-user-isadmin').checked = Number(user.isadmin) === 1;
         document.getElementById('edit-user-points').value = user.total_points || 0;
+        document.getElementById('edit-user-coins').value = user.coins || 0;
         document.getElementById('edit-user-diamonds').value = user.diamonds || 0;
         document.getElementById('edit-user-stars').value = user.stars || 0;
         document.getElementById('user-detail-msg').textContent = '';
@@ -1432,16 +1440,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             statsDiv.innerHTML += vhtml;
 
-            // Slot machine lifetime stats
+            // Slot machine lifetime stats (legacy point counters + new coin counters)
             const played = Number(d.slot_played || 0);
             const won    = Number(d.slot_won || 0);
+            const cPlayed = Number(d.slot_coins_played || 0);
+            const cWon    = Number(d.slot_coins_won || 0);
             const net    = won - played;
+            const cNet   = cWon - cPlayed;
             const fmt    = n => n.toLocaleString('de-DE');
             let shtml = '<h6 class="mt-3">🎰 Mini Slot</h6>';
-            if (played > 0 || won > 0) {
+            if (played > 0 || won > 0 || cPlayed > 0 || cWon > 0) {
                 const netClass = net >= 0 ? 'text-success' : 'text-danger';
                 const netSign  = net >= 0 ? '+' : '';
-                shtml += `<div class="small">Eingesetzt: <strong>${fmt(played)}</strong> Punkte &nbsp; · &nbsp; Gewonnen: <strong>${fmt(won)}</strong> Punkte &nbsp; · &nbsp; Netto: <strong class="${netClass}">${netSign}${fmt(net)}</strong></div>`;
+                const cNetClass = cNet >= 0 ? 'text-success' : 'text-danger';
+                const cNetSign  = cNet >= 0 ? '+' : '';
+                shtml += `<div class="small">🪙 Eingesetzt: <strong>${fmt(cPlayed)}</strong> &nbsp;·&nbsp; Gewonnen: <strong>${fmt(cWon)}</strong> &nbsp;·&nbsp; Netto: <strong class="${cNetClass}">${cNetSign}${fmt(cNet)}</strong></div>`;
+                shtml += `<div class="small text-muted">(Legacy 🏆 Punkte-Zähler: Einsatz ${fmt(played)}, Gewinn ${fmt(won)}, Netto <span class="${netClass}">${netSign}${fmt(net)}</span>)</div>`;
             } else {
                 shtml += '<div class="text-muted small">Noch nicht gespielt.</div>';
             }
@@ -1475,7 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.href = '#';
                 item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
                 item.dataset.uid = u.id;
-                item.innerHTML = `<div><strong>${escapeHtml(u.username)}</strong>${Number(u.isadmin) === 1 ? ' <span class="badge bg-info">Admin</span>' : ''}</div><div class="text-muted small">💎 ${u.diamonds || 0} &nbsp; ⭐ ${u.stars || 0} &nbsp; 🏆 ${u.total_points || 0}</div>`;
+                item.innerHTML = `<div><strong>${escapeHtml(u.username)}</strong>${Number(u.isadmin) === 1 ? ' <span class="badge bg-info">Admin</span>' : ''}</div><div class="text-muted small">💎 ${u.diamonds || 0} &nbsp; ⭐ ${u.stars || 0} &nbsp; 🏆 ${u.total_points || 0} &nbsp; 🪙 ${u.coins || 0}</div>`;
                 item.addEventListener('click', (e) => {
                     e.preventDefault();
                     openUserDetail(u.id);

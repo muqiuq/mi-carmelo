@@ -13,12 +13,13 @@ $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($action === 'list_users') {
-        $stmt = $pdo->query("SELECT id, username, isadmin, total_points, diamonds, stars, last_fed, question_set FROM users");
+        $stmt = $pdo->query("SELECT id, username, isadmin, total_points, coins, diamonds, stars, last_fed, question_set FROM users");
         $users = $stmt->fetchAll();
         foreach ($users as &$u) {
             $u['id'] = (int)$u['id'];
             $u['isadmin'] = (int)$u['isadmin'];
             $u['total_points'] = (int)$u['total_points'];
+            $u['coins'] = (int)$u['coins'];
             $u['diamonds'] = (int)$u['diamonds'];
             $u['stars'] = (int)$u['stars'];
         }
@@ -73,16 +74,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         } catch (PDOException $e) { /* table missing on old DB */ }
 
-        // Slot machine lifetime stats
-        $slot_played = 0; $slot_won = 0;
+        // Slot machine lifetime stats (legacy point-denominated columns kept;
+        // coin economy tracked separately in total_coins_played/total_coins_won).
+        $slot_played = 0; $slot_won = 0; $slot_coins_played = 0; $slot_coins_won = 0;
         try {
-            $sstmt = $pdo->prepare("SELECT total_played, total_won FROM user_slot_stats WHERE user_id = ?");
+            $sstmt = $pdo->prepare("SELECT total_played, total_won, total_coins_played, total_coins_won FROM user_slot_stats WHERE user_id = ?");
             $sstmt->execute([$user_id]);
             if ($srow = $sstmt->fetch()) {
-                $slot_played = (int)$srow['total_played'];
-                $slot_won    = (int)$srow['total_won'];
+                $slot_played       = (int)$srow['total_played'];
+                $slot_won          = (int)$srow['total_won'];
+                $slot_coins_played = (int)($srow['total_coins_played'] ?? 0);
+                $slot_coins_won    = (int)($srow['total_coins_won']    ?? 0);
             }
         } catch (PDOException $e) { /* table missing until first spin */ }
+
+        // Current coin balance
+        $coins_balance = 0;
+        try {
+            $cstmt = $pdo->prepare("SELECT coins FROM users WHERE id = ?");
+            $cstmt->execute([$user_id]);
+            $coins_balance = (int)($cstmt->fetchColumn() ?: 0);
+        } catch (PDOException $e) { /* column missing on very old DB */ }
 
         // Listen-and-write (Hörverständnis) lifetime stats
         $listen_total = 0; $listen_first = 0; $listen_typo = 0; $listen_skipped = 0;
@@ -106,6 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'verb_incorrect' => $verb_incorrect,
             'slot_played' => $slot_played,
             'slot_won'    => $slot_won,
+            'slot_coins_played' => $slot_coins_played,
+            'slot_coins_won'    => $slot_coins_won,
+            'coins'             => $coins_balance,
             'listen_total'                  => $listen_total,
             'listen_correct_first_try'      => $listen_first,
             'listen_correct_with_typo'      => $listen_typo,
@@ -221,15 +236,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         try {
             $total_points = isset($data['total_points']) ? max(0, (int)$data['total_points']) : null;
+            $coins = isset($data['coins']) ? max(0, (int)$data['coins']) : null;
             $diamonds = isset($data['diamonds']) ? max(0, (int)$data['diamonds']) : null;
             $stars = isset($data['stars']) ? max(0, (int)$data['stars']) : null;
 
             if ($password !== '') {
-                $stmt = $pdo->prepare("UPDATE users SET username = ?, password_hash = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars), question_set = ? WHERE id = ?");
-                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $isadmin, $total_points, $diamonds, $stars, $question_set, $user_id]);
+                $stmt = $pdo->prepare("UPDATE users SET username = ?, password_hash = ?, isadmin = ?, total_points = COALESCE(?, total_points), coins = COALESCE(?, coins), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars), question_set = ? WHERE id = ?");
+                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $isadmin, $total_points, $coins, $diamonds, $stars, $question_set, $user_id]);
             } else {
-                $stmt = $pdo->prepare("UPDATE users SET username = ?, isadmin = ?, total_points = COALESCE(?, total_points), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars), question_set = ? WHERE id = ?");
-                $stmt->execute([$username, $isadmin, $total_points, $diamonds, $stars, $question_set, $user_id]);
+                $stmt = $pdo->prepare("UPDATE users SET username = ?, isadmin = ?, total_points = COALESCE(?, total_points), coins = COALESCE(?, coins), diamonds = COALESCE(?, diamonds), stars = COALESCE(?, stars), question_set = ? WHERE id = ?");
+                $stmt->execute([$username, $isadmin, $total_points, $coins, $diamonds, $stars, $question_set, $user_id]);
             }
             echo json_encode(['success' => true]);
         } catch(PDOException $e) {

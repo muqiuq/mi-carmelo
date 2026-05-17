@@ -35,6 +35,7 @@ try {
                 stars INTEGER DEFAULT 0,
                 correct_streak_count INTEGER DEFAULT 0,
                 total_points INTEGER DEFAULT 0,
+                coins INTEGER DEFAULT 0,
                 questions_per_challenge INTEGER DEFAULT 3
             );
             
@@ -317,6 +318,20 @@ try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_total INTEGER DEFAULT 0");
 try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_correct_first_try INTEGER DEFAULT 0"); } catch (PDOException $e) {}
 try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_correct_with_typo INTEGER DEFAULT 0"); } catch (PDOException $e) {}
 try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_skipped INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+
+// Migration: coins currency on users — seed existing users with 500 coins one time.
+try {
+    $pdo->exec("ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0");
+    // Column was just added → backfill existing users with a starter balance.
+    $pdo->exec("UPDATE users SET coins = 500 WHERE coins = 0");
+} catch (PDOException $e) {
+    // Column already exists; do nothing (no re-seed).
+}
+
+// Migration: coin-denominated slot stats (kept in parallel with the existing
+// point-denominated total_played / total_won, which are intentionally left as-is).
+try { $pdo->exec("ALTER TABLE user_slot_stats ADD COLUMN total_coins_played INTEGER NOT NULL DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE user_slot_stats ADD COLUMN total_coins_won INTEGER NOT NULL DEFAULT 0"); } catch (PDOException $e) {}
 
 // Migration: listen_questions table — stores target text server-side so the
 // client never receives the answer until skip/reveal.
