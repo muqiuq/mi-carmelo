@@ -335,6 +335,25 @@ try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_correct_first_try INTEGER 
 try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_correct_with_typo INTEGER DEFAULT 0"); } catch (PDOException $e) {}
 try { $pdo->exec("ALTER TABLE users ADD COLUMN listen_skipped INTEGER DEFAULT 0"); } catch (PDOException $e) {}
 
+// Migration: Laute training aggregate stats columns on users
+try { $pdo->exec("ALTER TABLE users ADD COLUMN laute_total INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD COLUMN laute_perfect INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD COLUMN laute_replays_total INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD COLUMN laute_wrong_picks_total INTEGER DEFAULT 0"); } catch (PDOException $e) {}
+
+// Migration: per-slug Laute stats — one row per (user, slug)
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS user_laute_stats (
+            user_id INTEGER NOT NULL,
+            slug TEXT NOT NULL,
+            presented INTEGER NOT NULL DEFAULT 0,
+            correct INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, slug)
+        )
+    ");
+} catch (PDOException $e) {}
+
 // Migration: coins currency on users — seed existing users with 500 coins one time.
 try {
     $pdo->exec("ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0");

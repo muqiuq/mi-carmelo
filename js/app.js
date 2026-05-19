@@ -318,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(stats.frame_slots)) {
             renderFrames(stats.frame_slots);
         }
-        renderBigFrames(stats.heart_frame_owned, stats.medal_frame_owned);
         renderBed(stats.bed_owned);
         // Apply body color
         const petArea = document.getElementById('pet-area');
@@ -569,31 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderBigFrames(heartOwned, medalOwned) {
-        const decorEl = document.getElementById('pet-decor');
-        if (!decorEl) return;
-
-        decorEl.querySelectorAll('.picture-frame.frame-heart, .picture-frame.frame-medal').forEach(el => el.remove());
-
-        const bigSpots = [
-            { owned: !!heartOwned, variant: 'frame-heart', left: '40%', top: '42%', emoji: '\u2764\uFE0F' },
-            { owned: !!medalOwned, variant: 'frame-medal', left: '60%', top: '42%', emoji: '\u{1F947}' }
-        ];
-
-        bigSpots.forEach(spot => {
-            if (!spot.owned) return;
-            const frame = document.createElement('div');
-            frame.className = 'picture-frame ' + spot.variant;
-            frame.style.left = spot.left;
-            frame.style.top = spot.top;
-            const inner = document.createElement('div');
-            inner.className = 'frame-inner';
-            inner.textContent = spot.emoji;
-            frame.appendChild(inner);
-            decorEl.appendChild(frame);
-        });
-    }
-
     function renderBed(owned) {
         const decorEl = document.getElementById('pet-decor');
         const petArea = document.getElementById('pet-area');
@@ -644,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'col-12 col-md-6';
                 const lockedClass = item.can_afford ? '' : ' shop-item-locked';
-                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'frame_heart' || item.code === 'frame_medal' || item.code === 'chicken_house' || item.code === 'diamond_buy' || item.code === 'diamond_buy_3' || item.code.startsWith('color_');
+                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'chicken_house' || item.code === 'diamond_buy' || item.code === 'diamond_buy_3' || item.code.startsWith('color_');
                 const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
 
                 card.innerHTML = `
@@ -1502,6 +1476,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 lhtml += '<div class="text-muted small">Noch nicht gehört.</div>';
             }
             statsDiv.innerHTML += lhtml;
+
+            // Laute training lifetime stats
+            const laTotal   = Number(d.laute_total || 0);
+            const laPerfect = Number(d.laute_perfect || 0);
+            const laReplays = Number(d.laute_replays_total || 0);
+            const laWrong   = Number(d.laute_wrong_picks_total || 0);
+            const laStats   = Array.isArray(d.laute_stats) ? d.laute_stats : [];
+            let lahtml = '<h6 class="mt-3">🆰 Laute-Training</h6>';
+            if (laTotal > 0) {
+                const pp = laTotal > 0 ? Math.round((laPerfect / laTotal) * 100) : 0;
+                lahtml += `<div class="small mb-2">Gesamt: <strong>${laTotal}</strong> Runden &nbsp; · &nbsp; ⭐ perfekt: <strong>${laPerfect}</strong> (${pp}%) &nbsp; · &nbsp; 🔁 Abspielungen: <strong>${laReplays}</strong> &nbsp; · &nbsp; ❌ falsche Tipps: <strong>${laWrong}</strong></div>`;
+                if (laStats.length > 0) {
+                    lahtml += '<div class="small text-muted mb-1">Pro Laut (sortiert: schwächste zuerst)</div>';
+                    lahtml += '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr>' +
+                        '<th>Laut</th><th>Slug</th><th class="text-center">präsentiert</th><th class="text-center">korrekt</th><th class="text-center">%</th>' +
+                        '</tr></thead><tbody>';
+                    laStats.forEach(s => {
+                        const acc = Number(s.accuracy_pct || 0);
+                        const cls = acc >= 80 ? 'text-success' : acc >= 50 ? 'text-warning' : 'text-danger';
+                        lahtml += `<tr><td><strong>${escapeHtml(s.label)}</strong></td><td class="font-monospace small">${escapeHtml(s.slug)}</td><td class="text-center">${s.presented}</td><td class="text-center">${s.correct}</td><td class="text-center ${cls}"><strong>${acc}%</strong></td></tr>`;
+                    });
+                    lahtml += '</tbody></table></div>';
+                }
+            } else {
+                lahtml += '<div class="text-muted small">Noch nicht trainiert.</div>';
+            }
+            statsDiv.innerHTML += lahtml;
         }
     }
 

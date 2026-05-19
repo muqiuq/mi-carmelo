@@ -109,6 +109,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         } catch (PDOException $e) { /* columns missing on very old DB */ }
 
+        // Laute training lifetime stats — aggregates + per-slug detail
+        $laute_total = 0; $laute_perfect = 0; $laute_replays = 0; $laute_wrong = 0;
+        $laute_stats = [];
+        try {
+            $lastmt = $pdo->prepare("SELECT laute_total, laute_perfect, laute_replays_total, laute_wrong_picks_total FROM users WHERE id = ?");
+            $lastmt->execute([$user_id]);
+            if ($larow = $lastmt->fetch()) {
+                $laute_total   = (int)($larow['laute_total']             ?? 0);
+                $laute_perfect = (int)($larow['laute_perfect']           ?? 0);
+                $laute_replays = (int)($larow['laute_replays_total']     ?? 0);
+                $laute_wrong   = (int)($larow['laute_wrong_picks_total'] ?? 0);
+            }
+        } catch (PDOException $e) { /* columns missing on very old DB */ }
+        try {
+            require_once __DIR__ . '/laute.php';
+            $catalog = getLaute();
+            $labelBySlug = [];
+            foreach ($catalog as $it) { $labelBySlug[$it['slug']] = $it['label']; }
+            $lsstmt = $pdo->prepare("SELECT slug, presented, correct FROM user_laute_stats WHERE user_id = ?");
+            $lsstmt->execute([$user_id]);
+            foreach ($lsstmt->fetchAll() as $r) {
+                $pres = (int)$r['presented'];
+                $cor  = (int)$r['correct'];
+                $laute_stats[] = [
+                    'slug'         => $r['slug'],
+                    'label'        => $labelBySlug[$r['slug']] ?? $r['slug'],
+                    'presented'    => $pres,
+                    'correct'      => $cor,
+                    'accuracy_pct' => $pres > 0 ? (int)round($cor * 100 / $pres) : 0,
+                ];
+            }
+            // Sort: lowest accuracy first (most needs practice), then most presented.
+            usort($laute_stats, function ($a, $b) {
+                if ($a['accuracy_pct'] !== $b['accuracy_pct']) return $a['accuracy_pct'] - $b['accuracy_pct'];
+                return $b['presented'] - $a['presented'];
+            });
+        } catch (PDOException $e) { /* table missing on very old DB */ }
+
         echo json_encode([
             'success'   => true,
             'knowledge' => $knowledge,
@@ -125,6 +163,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'listen_correct_first_try'      => $listen_first,
             'listen_correct_with_typo'      => $listen_typo,
             'listen_skipped'                => $listen_skipped,
+            'laute_total'                   => $laute_total,
+            'laute_perfect'                 => $laute_perfect,
+            'laute_replays_total'           => $laute_replays,
+            'laute_wrong_picks_total'       => $laute_wrong,
+            'laute_stats'                   => $laute_stats,
         ]);
     } elseif ($action === 'list_question_files') {
         $data_dir = __DIR__ . '/../data';
