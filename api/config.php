@@ -1,7 +1,15 @@
 <?php
-$sevenDays = 7 * 24 * 60 * 60;
-ini_set('session.gc_maxlifetime', $sevenDays);
-session_set_cookie_params($sevenDays);
+$sessionLifetime = 30 * 24 * 60 * 60;
+ini_set('session.gc_maxlifetime', $sessionLifetime);
+ini_set('session.cookie_lifetime', $sessionLifetime);
+
+session_set_cookie_params([
+    'lifetime' => $sessionLifetime,
+    'path' => '/',
+    'secure' => !empty($_SERVER['HTTPS']),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 session_start();
 
 // Base configuration and SQLite initialization
@@ -96,6 +104,8 @@ try {
         $shopSeed->execute(['flower_wall', 'Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 10, 10]);
         $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
         $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
+        $shopSeed->execute(['frame_heart', 'Bilderrahmen: Herz', 'Ein großer Bilderrahmen mit rotem Herz.', 'stars', 5, 1, 32]);
+        $shopSeed->execute(['frame_medal', 'Bilderrahmen: Goldmedaille', 'Ein großer Bilderrahmen mit Goldmedaille.', 'stars', 20, 1, 34]);
         $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
         $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
         $shopSeed->execute(['diamond_buy_3', '3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 9999, 5]);
@@ -191,6 +201,8 @@ try {
     $shopSeed->execute(['flower_wall', 'Blume', 'Eine einzelne Blüte für die Wand.', 'points', 250, 10, 10]);
     $shopSeed->execute(['small_lamp', 'Kleine Lampe', 'Eine kleine gemütliche Lampe für das Zimmer.', 'diamonds', 5, 3, 20]);
     $shopSeed->execute(['picture_frame', 'Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 2, 30]);
+    $shopSeed->execute(['frame_heart', 'Bilderrahmen: Herz', 'Ein großer Bilderrahmen mit rotem Herz.', 'stars', 5, 1, 32]);
+    $shopSeed->execute(['frame_medal', 'Bilderrahmen: Goldmedaille', 'Ein großer Bilderrahmen mit Goldmedaille.', 'stars', 20, 1, 34]);
     $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
     $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
     $shopSeed->execute(['diamond_buy_3', '3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 9999, 5]);
@@ -211,6 +223,10 @@ try {
     $mqUpdate->execute([3, 'small_lamp']);
     $mqUpdate->execute([2, 'picture_frame']);
     $shopUpdate->execute(['Bilderrahmen', 'Ein süßer Bilderrahmen für die Wand.', 'diamonds', 7, 'picture_frame']);
+    $shopUpdate->execute(['Bilderrahmen: Herz', 'Ein großer Bilderrahmen mit rotem Herz.', 'stars', 5, 'frame_heart']);
+    $shopUpdate->execute(['Bilderrahmen: Goldmedaille', 'Ein großer Bilderrahmen mit Goldmedaille.', 'stars', 20, 'frame_medal']);
+    $mqUpdate->execute([1, 'frame_heart']);
+    $mqUpdate->execute([1, 'frame_medal']);
     $shopUpdate->execute(['Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 'chicken_house']);
     $shopUpdate->execute(['Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 'diamond_buy']);
     $shopUpdate->execute(['3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 'diamond_buy_3']);

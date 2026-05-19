@@ -943,16 +943,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     $decorStmt = $pdo->prepare("SELECT item_code, slot_index FROM user_decorations WHERE user_id = ? ORDER BY slot_index ASC");
     $decorStmt->execute([$_SESSION['user_id']]);
     $flower_slots = []; $lamp_slots = []; $frame_slots = []; $bed_owned = 0;
+    $heart_frame_owned = 0; $medal_frame_owned = 0;
     foreach ($decorStmt->fetchAll() as $row) {
         if ($row['item_code'] === 'flower_wall')   $flower_slots[] = (int)$row['slot_index'];
         if ($row['item_code'] === 'small_lamp')    $lamp_slots[]   = (int)$row['slot_index'];
         if ($row['item_code'] === 'picture_frame') $frame_slots[]  = (int)$row['slot_index'];
         if ($row['item_code'] === 'chicken_house') $bed_owned = 1;
+        if ($row['item_code'] === 'frame_heart')   $heart_frame_owned = 1;
+        if ($row['item_code'] === 'frame_medal')   $medal_frame_owned = 1;
     }
     $response_stats['flower_slots'] = $flower_slots;
     $response_stats['lamp_slots']   = $lamp_slots;
     $response_stats['frame_slots']  = $frame_slots;
     $response_stats['bed_owned']    = $bed_owned;
+    $response_stats['heart_frame_owned'] = $heart_frame_owned;
+    $response_stats['medal_frame_owned'] = $medal_frame_owned;
     $response_stats['pet_color']    = $fresh['pet_color'] ?? null;
 
     // Fiesta cooldown for response

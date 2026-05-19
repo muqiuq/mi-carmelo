@@ -215,6 +215,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
 
             $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, 'picture_frame', ?)");
             $insDecor->execute([$_SESSION['user_id'], $freeSlot]);
+        } elseif ($item['code'] === 'frame_heart' || $item['code'] === 'frame_medal') {
+            // Big singleton frames — always slot 0; max_quantity check above guards duplicates.
+            $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, ?, 0)");
+            $insDecor->execute([$_SESSION['user_id'], $item['code']]);
         } elseif ($item['code'] === 'diamond_buy') {
             // Grant +1 diamond; convert to star if a new threshold is crossed
             $game_config = require __DIR__ . '/../data/game_config.php';

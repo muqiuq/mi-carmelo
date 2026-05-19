@@ -189,6 +189,20 @@ body {
 .picture-frame.frame-bunny .frame-inner {
     background: linear-gradient(180deg, #fff4d6 0%, #f5e3a8 100%);
 }
+.picture-frame.frame-heart,
+.picture-frame.frame-medal {
+    width: 56px;
+    height: 64px;
+    padding: 5px;
+}
+.picture-frame.frame-heart .frame-inner {
+    background: linear-gradient(180deg, #ffe0e0 0%, #f8b4b4 100%);
+    font-size: 32px;
+}
+.picture-frame.frame-medal .frame-inner {
+    background: linear-gradient(180deg, #fff6c2 0%, #ffe066 100%);
+    font-size: 32px;
+}
 
 /* ---- Bed (chicken_house) — simple side view ---- */
 .bed {

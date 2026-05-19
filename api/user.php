@@ -124,6 +124,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bedStmt->execute([$_SESSION['user_id']]);
         $stats['bed_owned'] = ((int)$bedStmt->fetchColumn()) > 0;
 
+        $heartStmt = $pdo->prepare("SELECT COUNT(*) FROM user_decorations WHERE user_id = ? AND item_code = 'frame_heart'");
+        $heartStmt->execute([$_SESSION['user_id']]);
+        $stats['heart_frame_owned'] = ((int)$heartStmt->fetchColumn()) > 0;
+
+        $medalStmt = $pdo->prepare("SELECT COUNT(*) FROM user_decorations WHERE user_id = ? AND item_code = 'frame_medal'");
+        $medalStmt->execute([$_SESSION['user_id']]);
+        $stats['medal_frame_owned'] = ((int)$medalStmt->fetchColumn()) > 0;
+
         // Fiesta cooldown
         $fiestaCd = $game_config['fiesta_cooldown_seconds'] ?? 300;
         if (!empty($stats['last_fiesta'])) {
