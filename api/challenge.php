@@ -259,6 +259,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
         exit;
     }
 
+    // Laute training: pick 3 recorded Laute as the sequence + 6 plausible distractors → 3x3 grid
+    if ($type === 'laute') {
+        require_once __DIR__ . '/laute.php';
+        $catalog = getLaute();
+        // Index by slug; keep only Laute that have a recorded mp3.
+        $bySlug = [];
+        $audioSlugs = [];
+        foreach ($catalog as $it) {
+            $bySlug[$it['slug']] = $it;
+            if (file_exists(lauteAudioPath($it['slug']))) {
+                $audioSlugs[] = $it['slug'];
+            }
+        }
+        if (count($audioSlugs) < 9) {
+            echo json_encode(['success' => false, 'error' => 'Not enough recorded Laute (need at least 9, have ' . count($audioSlugs) . ')']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO laute_questions (id, sequence_json, grid_json) VALUES (?, ?, ?)");
+        $questions = [];
+        $rounds    = 2;
+        for ($r = 0; $r < $rounds; $r++) {
+            // Pick 3 targets at random from the audio-having pool.
+            $pool = $audioSlugs;
+            shuffle($pool);
+            $targets = array_slice($pool, 0, 3);
+            // Build distractor pool from each target's neighbors (only those with audio, not already targets).
+            $distractorSet = [];
+            foreach ($targets as $t) {
+                foreach (($bySlug[$t]['neighbors'] ?? []) as $n) {
+                    if (!isset($bySlug[$n])) continue;
+                    if (in_array($n, $targets, true)) continue;
+                    if (!file_exists(lauteAudioPath($n))) continue;
+                    $distractorSet[$n] = true;
+                }
+            }
+            $distractors = array_keys($distractorSet);
+            shuffle($distractors);
+            $distractors = array_slice($distractors, 0, 6);
+            // Pad with random non-target audio-having Laute if neighbors didn't yield 6.
+            if (count($distractors) < 6) {
+                $padPool = array_values(array_diff($audioSlugs, $targets, $distractors));
+                shuffle($padPool);
+                while (count($distractors) < 6 && !empty($padPool)) {
+                    $distractors[] = array_pop($padPool);
+                }
+            }
+            $gridSlugs = array_merge($targets, $distractors);
+            shuffle($gridSlugs);
+            $grid = array_map(fn($s) => ['slug' => $s, 'label' => $bySlug[$s]['label']], $gridSlugs);
+
+            // Persist sequence server-side; client only sees the grid + audio URLs.
+            $qid = 'laute_' . bin2hex(random_bytes(8));
+            $stmt->execute([$qid, json_encode($targets), json_encode($gridSlugs)]);
+
+            $audioUrls = array_map(fn($s) => 'audio/laute/' . rawurlencode($s) . '.mp3', $targets);
+
+            $questions[] = [
+                'id'         => $qid,
+                'type'       => 'laute',
+                'question'   => 'Höre die 3 Laute und tippe sie in der richtigen Reihenfolge an.',
+                'audio_urls' => $audioUrls,
+                'grid'       => $grid,
+            ];
+        }
+
+        echo json_encode([
+            'success'   => true,
+            'type'      => 'laute',
+            'questions' => $questions,
+        ]);
+        exit;
+    }
+
     // Clock challenge: 3 random analog-clock questions, no vocabulary lookup needed
     if ($type === 'clock') {
         $stmt = $pdo->prepare("SELECT question_set FROM users WHERE id = ?");
@@ -678,6 +752,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
     foreach ($results as $res) {
         $q_hash = $res['id'];
         $attempts = (int)$res['attempts'];
+
+        // Laute training: server-authoritative grading from persisted sequence.
+        if (strncmp($q_hash, 'laute_', 6) === 0) {
+            $row = null;
+            $sel = $pdo->prepare("SELECT sequence_json FROM laute_questions WHERE id = ?");
+            $sel->execute([$q_hash]);
+            $row = $sel->fetch();
+            if (!$row) {
+                // Unknown / expired id — award nothing.
+                continue;
+            }
+            $sequence = json_decode($row['sequence_json'], true) ?: [];
+            $picks    = is_array($res['picks'] ?? null) ? array_values(array_map('strval', $res['picks'])) : [];
+            $replays  = max(0, (int)($res['replays'] ?? 0));
+            $wrong    = max(0, (int)($res['wrong_picks'] ?? 0));
+            $skip     = !empty($res['skip']);
+
+            $perfect = ($game_config['points_laute_perfect'] ?? 30);
+            $replayPenalty = ($game_config['points_laute_replay_penalty'] ?? 5);
+            $wrongPenalty  = ($game_config['points_laute_wrong_pick_penalty'] ?? 3);
+
+            $completed = (count($picks) === count($sequence) && $picks === $sequence && !$skip);
+            if ($completed) {
+                // First play is free; deduct only for replays beyond 1.
+                $extraReplays = max(0, $replays - 1);
+                $pts = $perfect - ($extraReplays * $replayPenalty) - ($wrong * $wrongPenalty);
+                if ($pts < 1) $pts = 1;
+                $points_gained += $pts;
+                // Perfect (no wrong picks, max 1 play) extends streak.
+                if ($wrong === 0 && $replays <= 1) {
+                    $streak++;
+                }
+                if ($streak >= $game_config['correct_words_for_diamond']) {
+                    $diamonds++;
+                    $streak = 0;
+                    if ($diamonds > 0 && $diamonds % $game_config['diamonds_for_star'] === 0) {
+                        $stars++;
+                    }
+                }
+            }
+            // Clean up to avoid table growth.
+            $pdo->prepare("DELETE FROM laute_questions WHERE id = ?")->execute([$q_hash]);
+            continue;
+        }
 
         // Listen-and-write: custom scoring tiers, custom streak rule.
         if (strncmp($q_hash, 'listen_', 7) === 0) {

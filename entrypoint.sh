@@ -8,6 +8,10 @@ if [ -d /var/www/html/api ]; then
     mkdir -p /var/www/html/data
     chmod 777 /var/www/html/data
     chmod 666 /var/www/html/data/* 2>/dev/null || true
+    # Audio dirs (TTS cache + Laute recordings) must be writable by www-data.
+    mkdir -p /var/www/html/audio/laute
+    chmod 777 /var/www/html/audio /var/www/html/audio/laute
+    chmod 666 /var/www/html/audio/laute/* 2>/dev/null || true
     # Set umask so all new files (DB, vapid.json) are world-writable
     umask 000
 fi

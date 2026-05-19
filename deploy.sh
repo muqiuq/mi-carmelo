@@ -18,6 +18,7 @@ rsync -rltz --delete --omit-dir-times --no-perms \
     --include='favicon.svg' \
     --include='data/' \
     --include='data/.htaccess' \
+    --include='data/laute.yaml' \
     --exclude='*' \
     ./ "${TARGET_HOST}:${TARGET_DIR}/"
  #   --include='data/questions.yaml' \

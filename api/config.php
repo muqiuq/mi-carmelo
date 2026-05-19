@@ -351,8 +351,27 @@ try {
 // Migration: add options_json column to listen_questions (for MC sentence mode).
 try { $pdo->exec("ALTER TABLE listen_questions ADD COLUMN options_json TEXT DEFAULT NULL"); } catch (PDOException $e) {}
 
+// Migration: laute_questions table — stores 3-Laute sequence + grid server-side
+// so the client never sees the answer.
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS laute_questions (
+            id TEXT PRIMARY KEY,
+            sequence_json TEXT NOT NULL,
+            grid_json TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+} catch (PDOException $e) {
+    // Ignore
+}
+
 // Ensure audio directory exists
 $audio_dir = __DIR__ . '/../audio';
 if (!is_dir($audio_dir)) {
     mkdir($audio_dir, 0777, true);
+}
+$laute_dir = $audio_dir . '/laute';
+if (!is_dir($laute_dir)) {
+    mkdir($laute_dir, 0777, true);
 }

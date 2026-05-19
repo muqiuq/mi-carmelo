@@ -19,6 +19,13 @@ return [
     'points_listen_second_typo'    => 5,
     'points_listen_third_or_skip'  => 1,
 
+    // Laute (German phoneme) training scoring
+    // First play is free; each additional replay deducts the replay penalty.
+    // Each wrong pick deducts the wrong-pick penalty. Minimum 1 if completed.
+    'points_laute_perfect'             => 30,
+    'points_laute_replay_penalty'      => 5,
+    'points_laute_wrong_pick_penalty'  => 3,
+
     // Rewards thresholds
     'correct_words_for_diamond' => 10,
     'diamonds_for_star' => 10,

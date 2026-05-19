@@ -156,6 +156,7 @@ if (file_exists($db_file)) {
                     <button id="btn-clock" class="btn btn-secondary btn-lg m-2" title="Clock challenge">🕐</button>
                     <button id="btn-verb" class="btn btn-success btn-lg m-2" title="Verb conjugation">📝</button>
                     <button id="btn-listen" class="btn btn-outline-info btn-lg m-2" title="Hörverständnis">🎧</button>
+                    <button id="btn-laute" class="btn btn-outline-success btn-lg m-2" title="Laute-Training">🅰️</button>
                     <button id="btn-fiesta" class="btn btn-danger btn-lg m-2 d-none">🎉 Fiesta</button>
                     <button id="btn-shop" class="btn btn-outline-primary btn-lg m-2">Shop</button>
                     <button id="btn-slot" class="btn btn-outline-warning btn-lg m-2" title="Mini Slot">🎰</button>
@@ -179,7 +180,7 @@ if (file_exists($db_file)) {
                     <button id="btn-notifications" class="btn btn-outline-secondary btn-sm d-none" title="Enable/disable notifications">🔔 Notifications</button>
                     <button id="btn-logout" class="btn btn-outline-dark btn-sm">Logout</button>
                 </div>
-                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.15</div>
+                <div class="text-center text-muted small mt-2" style="opacity:.45">v1.16</div>
             </main>
 
             <!-- CHALLENGE OVERLAY -->
@@ -205,6 +206,12 @@ if (file_exists($db_file)) {
                                     <button type="button" id="btn-listen-play" class="btn btn-primary btn-lg rounded-circle" style="width:96px;height:96px;font-size:2.2rem;">▶️</button>
                                     <input type="text" id="challenge-listen-answer" class="form-control form-control-lg text-center mt-3" placeholder="Tippe was du hörst" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
                                     <div id="challenge-listen-reveal" class="alert alert-info mt-2 d-none"></div>
+                                </div>
+                                <div id="challenge-laute" class="text-center mb-3 d-none">
+                                    <button type="button" id="btn-laute-play" class="btn btn-primary btn-lg rounded-circle mb-2" style="width:96px;height:96px;font-size:2.2rem;">▶️</button>
+                                    <div id="laute-progress" class="d-flex justify-content-center gap-2 my-2"></div>
+                                    <div id="laute-grid" class="d-grid gap-2 mt-2" style="grid-template-columns: repeat(3, 1fr);"></div>
+                                    <div id="laute-replay-info" class="small text-muted mt-2"></div>
                                 </div>
                                 <button type="submit" id="btn-challenge-submit" class="btn btn-primary btn-lg w-100">Check</button>
                                 <button type="button" id="btn-listen-skip" class="btn btn-outline-secondary w-100 mt-2 d-none">⏭️ Überspringen</button>
@@ -240,6 +247,7 @@ if (file_exists($db_file)) {
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-fiesta">🎉 Fiesta</a>
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-ai">🤖 AI Generate Questions</a>
                 <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-audio">🔊 Audio Cache</a>
+                <a href="#" class="list-group-item list-group-item-action btn-admin-section" data-section="admin-section-laute">🎙️ Laute Studio</a>
             </div>
 
             <!-- USERS SECTION -->
@@ -450,6 +458,36 @@ if (file_exists($db_file)) {
                 </div>
             </div>
 
+            <!-- LAUTE STUDIO SECTION -->
+            <div id="admin-section-laute" class="admin-section d-none">
+                <div class="card mx-auto text-start mb-4" style="max-width: 700px;">
+                    <div class="card-body">
+                        <h5>🎙️ Laute Studio</h5>
+                        <p class="small text-muted mb-2">
+                            Nimm für jeden Laut eine kurze MP3-Aufnahme auf. Wähle eine Zeile,
+                            klicke „Aufnehmen“, sprich den Laut, dann „Stop“ → „Vorhören“ → „Speichern“.
+                        </p>
+                        <div id="laute-recorder" class="border rounded p-3 mb-3 bg-light">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="fw-bold">Aktuell:</span>
+                                <span id="laute-current" class="badge bg-secondary">– keiner –</span>
+                                <span id="laute-rec-status" class="small text-muted ms-auto"></span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <button id="btn-laute-rec-start" class="btn btn-danger btn-sm" disabled>● Aufnehmen</button>
+                                <button id="btn-laute-rec-stop" class="btn btn-secondary btn-sm" disabled>■ Stop</button>
+                                <button id="btn-laute-rec-preview" class="btn btn-outline-primary btn-sm" disabled>▶ Vorhören</button>
+                                <button id="btn-laute-rec-save" class="btn btn-success btn-sm" disabled>💾 Speichern</button>
+                                <button id="btn-laute-rec-discard" class="btn btn-outline-secondary btn-sm" disabled>🗑️ Verwerfen</button>
+                                <button id="btn-laute-rec-next" class="btn btn-outline-info btn-sm">⏭️ Nächster offener</button>
+                            </div>
+                            <div id="laute-rec-msg" class="small"></div>
+                        </div>
+                        <div id="laute-list" class="list-group"></div>
+                    </div>
+                </div>
+            </div>
+
             <button class="btn btn-secondary mt-2 mb-3 btn-admin-back">Back to Game</button>
         </div>
 
@@ -521,6 +559,8 @@ if (file_exists($db_file)) {
 
     <!-- Twitter Bootstrap 5.3.8 JS -->
     <script src="vendor/bootstrap.bundle.min.js"></script>
+    <!-- lamejs (MP3 encoding in browser, used by admin Laute-Studio) -->
+    <script src="vendor/lame.min.js"></script>
     <script src="js/app.js?v=<?= filemtime(__DIR__ . '/js/app.js') ?>"></script>
 </body>
 </html>

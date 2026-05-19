@@ -1,0 +1,580 @@
+# Laute (German phonemes) catalog
+# Each entry:
+#   slug:       ASCII-only filename-safe identifier (also the .mp3 basename under audio/laute/)
+#   label:      display text shown on grid buttons (may contain umlauts)
+#   group:      coarse confusion group; used to pad distractors if neighbors run out
+#   neighbors:  list of similar-sounding slugs used as distractors in the 3x3 grid
+#               (only slugs that also exist in this catalog and have a recorded mp3
+#                will actually be used; the rest are silently skipped)
+
+# --- ch family ---------------------------------------------------------------
+- slug: ich
+  label: "ich"
+  group: ch
+  neighbors: [icht, ech, isch, uecht]
+
+- slug: ach
+  label: "ach"
+  group: ch
+  neighbors: [acht, och, uch]
+
+- slug: och
+  label: "och"
+  group: ch
+  neighbors: [ach, uch]
+
+- slug: uch
+  label: "uch"
+  group: ch
+  neighbors: [och, ach]
+
+- slug: ech
+  label: "ech"
+  group: ch
+  neighbors: [ich, icht, isch]
+
+- slug: uecht
+  label: "ücht"
+  group: ch
+  neighbors: [icht, ich, ueh]
+
+- slug: icht
+  label: "icht"
+  group: ch
+  neighbors: [ich, uecht, isch]
+
+- slug: acht
+  label: "acht"
+  group: ch
+  neighbors: [ach, ascht]
+
+# --- sch / sp / st clusters --------------------------------------------------
+- slug: sch
+  label: "sch"
+  group: sch_cluster
+  neighbors: [schi, schu, schoe]
+
+- slug: schi
+  label: "schi"
+  group: sch_cluster
+  neighbors: [sch, schu, isch]
+
+- slug: schu
+  label: "schu"
+  group: sch_cluster
+  neighbors: [sch, schi, schoe]
+
+- slug: schoe
+  label: "schö"
+  group: sch_cluster
+  neighbors: [schu, schi, koe]
+
+- slug: sp
+  label: "sp"
+  group: sch_cluster
+  neighbors: [spi, spa, st, sch]
+
+- slug: spi
+  label: "spi"
+  group: sch_cluster
+  neighbors: [sp, spa, schi, sti]
+
+- slug: spa
+  label: "spa"
+  group: sch_cluster
+  neighbors: [sp, spi, sta, scha]
+
+- slug: st
+  label: "st"
+  group: sch_cluster
+  neighbors: [sta, sti, sp, sch]
+
+- slug: sta
+  label: "sta"
+  group: sch_cluster
+  neighbors: [st, sti, spa, scha]
+
+- slug: sti
+  label: "sti"
+  group: sch_cluster
+  neighbors: [st, sta, spi, schi]
+
+- slug: isch
+  label: "isch"
+  group: sch_cluster
+  neighbors: [ich, ech, icht, schi]
+
+- slug: scha
+  label: "scha"
+  group: sch_cluster
+  neighbors: [sch, schi, spa, sta]
+
+- slug: ascht
+  label: "ascht"
+  group: sch_cluster
+  neighbors: [acht, isch, sta, scha]
+
+# --- umlaut vowels (short / long) -------------------------------------------
+- slug: ae
+  label: "ä"
+  group: umlaut
+  neighbors: [aeh, e, oe]
+
+- slug: oe
+  label: "ö"
+  group: umlaut
+  neighbors: [oeh, o, ue, e]
+
+- slug: ue
+  label: "ü"
+  group: umlaut
+  neighbors: [ueh, u, oe, i]
+
+- slug: aeh
+  label: "äh"
+  group: umlaut
+  neighbors: [ae, eh, oeh]
+
+- slug: oeh
+  label: "öh"
+  group: umlaut
+  neighbors: [oe, ueh, oh, eh]
+
+- slug: ueh
+  label: "üh"
+  group: umlaut
+  neighbors: [ue, oeh, uh, ih]
+
+- slug: aeu
+  label: "äu"
+  group: umlaut
+  neighbors: [eu, au, ai]
+
+# --- plain vowel length pairs -----------------------------------------------
+- slug: a
+  label: "a"
+  group: vowel
+  neighbors: [ah, ae, o, e]
+
+- slug: ah
+  label: "ah"
+  group: vowel
+  neighbors: [a, aeh, oh, eh]
+
+- slug: e
+  label: "e"
+  group: vowel
+  neighbors: [eh, ae, i, oe]
+
+- slug: eh
+  label: "eh"
+  group: vowel
+  neighbors: [e, aeh, ih, ah]
+
+- slug: i
+  label: "i"
+  group: vowel
+  neighbors: [ih, ie, e, ue]
+
+- slug: ih
+  label: "ih"
+  group: vowel
+  neighbors: [i, ie, eh, ueh]
+
+- slug: o
+  label: "o"
+  group: vowel
+  neighbors: [oh, oe, a, u]
+
+- slug: oh
+  label: "oh"
+  group: vowel
+  neighbors: [o, oeh, ah, uh]
+
+- slug: u
+  label: "u"
+  group: vowel
+  neighbors: [uh, ue, o, ih]
+
+- slug: uh
+  label: "uh"
+  group: vowel
+  neighbors: [u, ueh, oh, ih]
+
+# --- diphthongs --------------------------------------------------------------
+- slug: ei
+  label: "ei"
+  group: diphthong
+  neighbors: [ai, ie, eu, aeu]
+
+- slug: ie
+  label: "ie"
+  group: diphthong
+  neighbors: [ih, i, ei, ai]
+
+- slug: eu
+  label: "eu"
+  group: diphthong
+  neighbors: [aeu, au, ei]
+
+- slug: au
+  label: "au"
+  group: diphthong
+  neighbors: [aeu, eu, ai]
+
+- slug: ai
+  label: "ai"
+  group: diphthong
+  neighbors: [ei, ie, aeu]
+
+# --- German onsets / clusters -----------------------------------------------
+- slug: pfi
+  label: "pfi"
+  group: onset
+  neighbors: [kn, qu, ts]
+
+- slug: knie
+  label: "knie"
+  group: onset
+  neighbors: [pf, qu, ng]
+
+- slug: qu
+  label: "qu"
+  group: onset
+  neighbors: [kn, ku, pf]
+
+- slug: ts
+  label: "ts (z)"
+  group: onset
+  neighbors: [tz, ng]
+
+- slug: Latz
+  label: "Latz"
+  group: onset
+  neighbors: [ts, ng]
+
+- slug: peng
+  label: "peng"
+  group: onset
+  neighbors: [ig, tz, ts]
+
+- slug: ig
+  label: "ig (-ich)"
+  group: onset
+  neighbors: [ich, ng, isch]
+
+# --- glottal / final devoicing examples -------------------------------------
+- slug: glottal_ach
+  label: "ʔach"
+  group: glottal
+  neighbors: [ach, ah]
+
+- slug: end_tag
+  label: "-tag"
+  group: devoicing
+  neighbors: [end_und, end_lieb, end_weg]
+
+- slug: end_und
+  label: "-und"
+  group: devoicing
+  neighbors: [end_tag, end_lieb, end_weg]
+
+- slug: end_lieb
+  label: "-lieb"
+  group: devoicing
+  neighbors: [end_tag, end_und, end_weg]
+
+- slug: end_weg
+  label: "-weg"
+  group: devoicing
+  neighbors: [end_tag, end_und, end_lieb]
+
+# --- CV cells (k-row) -------------------------------------------------------
+- slug: ka
+  label: "ka"
+  group: cv_k
+  neighbors: [ki, ko, ku, koe]
+
+- slug: ki
+  label: "ki"
+  group: cv_k
+  neighbors: [ka, ko, ku]
+
+- slug: ko
+  label: "ko"
+  group: cv_k
+  neighbors: [ka, ki, ku, koe]
+
+- slug: ku
+  label: "ku"
+  group: cv_k
+  neighbors: [ka, ki, ko]
+
+- slug: koe
+  label: "kö"
+  group: cv_k
+  neighbors: [ko, ku, schoe]
+
+# --- short basic words ------------------------------------------------------
+# Used both as discrimination targets and as a gentle ear-training warm-up.
+# Neighbors are rhymes or look-alikes that already exist in this catalog.
+
+- slug: ja
+  label: "ja"
+  group: words_basic
+  neighbors: [nein, da, du]
+
+- slug: nein
+  label: "nein"
+  group: words_basic
+  neighbors: [ja, mein, dein, klein, ein]
+
+- slug: ein
+  label: "ein"
+  group: words_basic
+  neighbors: [mein, dein, nein, klein]
+
+- slug: mein
+  label: "mein"
+  group: words_basic
+  neighbors: [dein, nein, klein, ein]
+
+- slug: dein
+  label: "dein"
+  group: words_basic
+  neighbors: [mein, nein, klein, ein]
+
+- slug: du
+  label: "du"
+  group: words_basic
+  neighbors: [er, sie, wir, ja]
+
+- slug: er
+  label: "er"
+  group: words_basic
+  neighbors: [du, sie, wir]
+
+- slug: sie
+  label: "sie"
+  group: words_basic
+  neighbors: [du, er, wir]
+
+- slug: wir
+  label: "wir"
+  group: words_basic
+  neighbors: [du, er, sie, hier]
+
+- slug: hier
+  label: "hier"
+  group: words_basic
+  neighbors: [wir, da, vier]
+
+- slug: da
+  label: "da"
+  group: words_basic
+  neighbors: [ja, hier]
+
+- slug: gut
+  label: "gut"
+  group: words_basic
+  neighbors: [hut, mut, blut]
+
+- slug: hut
+  label: "Hut"
+  group: words_basic
+  neighbors: [gut, mut, blut]
+
+- slug: mut
+  label: "Mut"
+  group: words_basic
+  neighbors: [gut, hut, blut]
+
+- slug: blut
+  label: "Blut"
+  group: words_basic
+  neighbors: [gut, hut, mut]
+
+- slug: haus
+  label: "Haus"
+  group: words_basic
+  neighbors: [maus, aus, baum]
+
+- slug: maus
+  label: "Maus"
+  group: words_basic
+  neighbors: [haus, aus, baum]
+
+- slug: aus
+  label: "aus"
+  group: words_basic
+  neighbors: [haus, maus, auf]
+
+- slug: auf
+  label: "auf"
+  group: words_basic
+  neighbors: [aus, ab, an]
+
+- slug: ab
+  label: "ab"
+  group: words_basic
+  neighbors: [auf, an]
+
+- slug: an
+  label: "an"
+  group: words_basic
+  neighbors: [ab, auf]
+
+- slug: baum
+  label: "Baum"
+  group: words_basic
+  neighbors: [haus, maus, raum]
+
+- slug: raum
+  label: "Raum"
+  group: words_basic
+  neighbors: [baum, haus, maus]
+
+- slug: hund
+  label: "Hund"
+  group: words_basic
+  neighbors: [mund, und, bund]
+
+- slug: mund
+  label: "Mund"
+  group: words_basic
+  neighbors: [hund, und, bund]
+
+- slug: und
+  label: "und"
+  group: words_basic
+  neighbors: [hund, mund, bund]
+
+- slug: bund
+  label: "Bund"
+  group: words_basic
+  neighbors: [hund, mund, und]
+
+- slug: tag
+  label: "Tag"
+  group: words_basic
+  neighbors: [mag, sag, nacht]
+
+- slug: mag
+  label: "mag"
+  group: words_basic
+  neighbors: [tag, sag]
+
+- slug: sag
+  label: "sag"
+  group: words_basic
+  neighbors: [tag, mag]
+
+- slug: nacht
+  label: "Nacht"
+  group: words_basic
+  neighbors: [tag, acht, macht]
+
+- slug: macht
+  label: "macht"
+  group: words_basic
+  neighbors: [nacht, acht]
+
+- slug: rot
+  label: "rot"
+  group: words_basic
+  neighbors: [tot, brot, not]
+
+- slug: tot
+  label: "tot"
+  group: words_basic
+  neighbors: [rot, brot, not]
+
+- slug: brot
+  label: "Brot"
+  group: words_basic
+  neighbors: [rot, tot, not]
+
+- slug: not
+  label: "Not"
+  group: words_basic
+  neighbors: [rot, tot, brot]
+
+- slug: blau
+  label: "blau"
+  group: words_basic
+  neighbors: [grau, frau]
+
+- slug: grau
+  label: "grau"
+  group: words_basic
+  neighbors: [blau, frau]
+
+- slug: frau
+  label: "Frau"
+  group: words_basic
+  neighbors: [grau, blau]
+
+- slug: klein
+  label: "klein"
+  group: words_basic
+  neighbors: [mein, dein, nein, ein]
+
+- slug: gross
+  label: "groß"
+  group: words_basic
+  neighbors: [klein, schloss]
+
+- slug: schloss
+  label: "Schloss"
+  group: words_basic
+  neighbors: [gross, fluss]
+
+- slug: fluss
+  label: "Fluss"
+  group: words_basic
+  neighbors: [schloss, gross]
+
+- slug: eins
+  label: "eins"
+  group: words_basic
+  neighbors: [zwei, drei, vier]
+
+- slug: zwei
+  label: "zwei"
+  group: words_basic
+  neighbors: [eins, drei, vier]
+
+- slug: drei
+  label: "drei"
+  group: words_basic
+  neighbors: [zwei, eins, vier]
+
+- slug: vier
+  label: "vier"
+  group: words_basic
+  neighbors: [drei, hier, wir]
+
+- slug: oben
+  label: "oben"
+  group: words_basic
+  neighbors: [unten, neben]
+
+- slug: unten
+  label: "unten"
+  group: words_basic
+  neighbors: [oben, neben]
+
+- slug: neben
+  label: "neben"
+  group: words_basic
+  neighbors: [oben, unten]
+
+- slug: links
+  label: "links"
+  group: words_basic
+  neighbors: [rechts]
+
+- slug: rechts
+  label: "rechts"
+  group: words_basic
+  neighbors: [links]

@@ -162,6 +162,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     } elseif ($action === 'list_audio') {
         $rows = $pdo->query("SELECT id, text_hash, text, filename, created_at FROM audio_cache ORDER BY created_at DESC")->fetchAll();
         echo json_encode(['success' => true, 'files' => $rows]);
+    } elseif ($action === 'list_laute') {
+        require_once __DIR__ . '/laute.php';
+        $items = getLaute();
+        foreach ($items as &$it) {
+            $path = lauteAudioPath($it['slug']);
+            $it['has_audio'] = file_exists($path);
+            $it['size'] = $it['has_audio'] ? filesize($path) : 0;
+            $it['mtime'] = $it['has_audio'] ? filemtime($path) : 0;
+        }
+        unset($it);
+        echo json_encode(['success' => true, 'items' => $items]);
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $json = file_get_contents('php://input');
@@ -388,6 +399,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             if (file_exists($file)) unlink($file);
             $pdo->prepare("DELETE FROM audio_cache WHERE id = ?")->execute([$id]);
         }
+        echo json_encode(['success' => true]);
+    } elseif ($action === 'upload_laute') {
+        // Multipart: slug in $_POST, file in $_FILES['audio'].
+        require_once __DIR__ . '/laute.php';
+        $slug = trim($_POST['slug'] ?? '');
+        if (!preg_match('/^[a-z0-9_]+$/', $slug)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid slug']);
+            exit;
+        }
+        if (!in_array($slug, lauteSlugs(), true)) {
+            echo json_encode(['success' => false, 'error' => 'Slug not in catalog']);
+            exit;
+        }
+        if (!isset($_FILES['audio']) || $_FILES['audio']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'error' => 'No file uploaded']);
+            exit;
+        }
+        if ($_FILES['audio']['size'] > 2 * 1024 * 1024) {
+            echo json_encode(['success' => false, 'error' => 'File too large (max 2 MB)']);
+            exit;
+        }
+        $dir = lauteAudioDir();
+        if (!is_dir($dir)) @mkdir($dir, 0777, true);
+        if (!is_writable($dir)) {
+            echo json_encode(['success' => false, 'error' => 'Audio directory not writable: ' . $dir]);
+            exit;
+        }
+        $dest = lauteAudioPath($slug);
+        $tmp = $dest . '.tmp';
+        if (!@move_uploaded_file($_FILES['audio']['tmp_name'], $tmp)) {
+            $err = error_get_last();
+            echo json_encode(['success' => false, 'error' => 'Failed to save upload' . ($err ? ': ' . $err['message'] : '')]);
+            exit;
+        }
+        @rename($tmp, $dest);
+        echo json_encode(['success' => true, 'size' => filesize($dest)]);
+    } elseif ($action === 'delete_laute') {
+        require_once __DIR__ . '/laute.php';
+        $slug = trim($data['slug'] ?? '');
+        if (!preg_match('/^[a-z0-9_]+$/', $slug)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid slug']);
+            exit;
+        }
+        $path = lauteAudioPath($slug);
+        if (file_exists($path)) unlink($path);
         echo json_encode(['success' => true]);
     }
 }

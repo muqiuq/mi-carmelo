@@ -1102,6 +1102,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 initAiSection();
             } else if (sectionId === 'admin-section-audio') {
                 loadAudioAdmin();
+            } else if (sectionId === 'admin-section-laute') {
+                loadLauteAdmin();
             }
         });
     });
@@ -2231,7 +2233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function startChallenge(type) {
         challengeType = type;
 
-        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive'), clock: document.getElementById('btn-clock'), verb: document.getElementById('btn-verb'), listen: document.getElementById('btn-listen') };
+        const btnMap = { pet: btnPet, feed: btnFeed, fiesta: btnFiesta, revive: document.getElementById('btn-revive'), clock: document.getElementById('btn-clock'), verb: document.getElementById('btn-verb'), listen: document.getElementById('btn-listen'), laute: document.getElementById('btn-laute') };
         const triggerBtn = btnMap[type] || null;
         let originalHtml = null;
         if (triggerBtn) {
@@ -2371,6 +2373,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 && mcOptions.nextElementSibling !== challengeListen) {
                 challengeListen.parentNode.insertBefore(mcOptions, challengeListen);
             }
+        }
+
+        // Laute training UI: 3-sound sequence + 3x3 grid of text-labeled buttons.
+        if (q.type === 'laute') {
+            textInput.classList.add('d-none');
+            inputChallengeAnswer.removeAttribute('required');
+            mcOptions.classList.add('d-none');
+            mcOptions.innerHTML = '';
+            btnChallengeSubmit.classList.add('d-none');
+            renderLauteChallenge(q);
+            hideFeedback();
+            return;
+        } else {
+            const lauteBox = document.getElementById('challenge-laute');
+            if (lauteBox) lauteBox.classList.add('d-none');
         }
 
         if (q.options && q.options.length > 0) {
@@ -2804,6 +2821,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     spawnConfetti();
                 } else if (challengeType === 'pet') {
                     triggerAnimation('anim-pet', 4500);
+                } else if (challengeType === 'laute') {
+                    triggerAnimation('anim-pet', 4500);
                 } else {
                     triggerAnimation('anim-eat', 4000);
                 }
@@ -2846,6 +2865,15 @@ document.addEventListener('DOMContentLoaded', () => {
         btnListen.addEventListener('click', () => {
             if (btnListen.disabled) return;
             startChallenge('listen');
+        });
+    }
+
+    // --- LAUTE-TRAINING ---
+    const btnLaute = document.getElementById('btn-laute');
+    if (btnLaute) {
+        btnLaute.addEventListener('click', () => {
+            if (btnLaute.disabled) return;
+            startChallenge('laute');
         });
     }
 
@@ -3051,6 +3079,462 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         btn.disabled = false;
     });
+
+    // ============================================================
+    // LAUTE TRAINING — challenge UI
+    // ============================================================
+    let lauteState = null; // { audios, sequenceLen, currentIndex, replays, wrongPicks, picks, playing }
+
+    function renderLauteChallenge(q) {
+        const box      = document.getElementById('challenge-laute');
+        const playBtn  = document.getElementById('btn-laute-play');
+        const progress = document.getElementById('laute-progress');
+        const grid     = document.getElementById('laute-grid');
+        const info     = document.getElementById('laute-replay-info');
+        if (!box || !playBtn || !grid || !progress) return;
+        box.classList.remove('d-none');
+
+        // Preload the 3 sequence audios.
+        const audios = q.audio_urls.map(url => {
+            const a = new Audio(url);
+            a.preload = 'auto';
+            return a;
+        });
+
+        lauteState = {
+            audios,
+            sequenceLen: q.audio_urls.length,
+            currentIndex: 0,
+            replays: 0,
+            wrongPicks: 0,
+            picks: [],
+            playing: false,
+            qid: q.id,
+        };
+
+        // Progress dots.
+        progress.innerHTML = '';
+        for (let i = 0; i < lauteState.sequenceLen; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'badge bg-light text-dark border';
+            dot.style.minWidth = '2.2rem';
+            dot.style.fontSize = '1rem';
+            dot.textContent = (i + 1) + '.';
+            dot.dataset.idx = String(i);
+            progress.appendChild(dot);
+        }
+
+        // Grid.
+        grid.innerHTML = '';
+        q.grid.forEach(cell => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-primary btn-lg';
+            btn.style.minHeight = '64px';
+            btn.style.fontSize = '1.4rem';
+            btn.textContent = cell.label;
+            btn.dataset.slug = cell.slug;
+            btn.addEventListener('click', () => onLautePick(btn));
+            grid.appendChild(btn);
+        });
+
+        info.textContent = 'Klicke ▶️ um die 3 Laute zu hören. Tippe sie dann in der richtigen Reihenfolge an.';
+
+        // Play handler — chain audios with ~400ms gap.
+        playBtn.onclick = () => {
+            if (!lauteState || lauteState.playing) return;
+            lauteState.replays += 1;
+            updateLauteInfo();
+            playLauteSequence(0);
+        };
+    }
+
+    function playLauteSequence(idx) {
+        if (!lauteState) return;
+        if (idx >= lauteState.audios.length) {
+            lauteState.playing = false;
+            return;
+        }
+        lauteState.playing = true;
+        const a = lauteState.audios[idx];
+        try { a.currentTime = 0; } catch (_) {}
+        const p = a.play();
+        const onEnd = () => {
+            a.removeEventListener('ended', onEnd);
+            setTimeout(() => playLauteSequence(idx + 1), 400);
+        };
+        a.addEventListener('ended', onEnd);
+        if (p && typeof p.catch === 'function') {
+            p.catch(err => {
+                console.warn('Laute play failed:', err);
+                lauteState.playing = false;
+            });
+        }
+    }
+
+    function updateLauteInfo() {
+        const info = document.getElementById('laute-replay-info');
+        if (!info || !lauteState) return;
+        const extra = Math.max(0, lauteState.replays - 1);
+        const bits = [`Abspielungen: ${lauteState.replays}`];
+        if (extra > 0) bits.push(`-${extra * 5} Pkt`);
+        if (lauteState.wrongPicks > 0) bits.push(`Fehler: ${lauteState.wrongPicks} (-${lauteState.wrongPicks * 3} Pkt)`);
+        info.textContent = bits.join(' · ');
+    }
+
+    function onLautePick(btn) {
+        if (!lauteState) return;
+        if (lauteState.currentIndex >= lauteState.sequenceLen) return;
+        const slug = btn.dataset.slug;
+
+        // Find the target sequence via comparing slug at position idx using a server-derived shortcut:
+        // we don't know the sequence client-side, so we provisionally accept and let the server grade.
+        // To keep UX (lock-on-correct), we use a client check by playing the matching position audio
+        // URL: targets' audios live in lauteState.audios in ORDER. We compare via filename mapping.
+        const expectedUrl = lauteState.audios[lauteState.currentIndex].src;
+        // expected slug is the last path segment minus ".mp3"
+        const m = expectedUrl.match(/\/([^\/]+)\.mp3(?:\?|$)/);
+        const expectedSlug = m ? decodeURIComponent(m[1]) : null;
+
+        if (slug === expectedSlug) {
+            btn.classList.remove('btn-outline-primary', 'btn-danger');
+            btn.classList.add('btn-success');
+            btn.disabled = true;
+            lauteState.picks.push(slug);
+            // mark progress dot
+            const dot = document.querySelector(`#laute-progress [data-idx="${lauteState.currentIndex}"]`);
+            if (dot) {
+                dot.classList.remove('bg-light', 'text-dark');
+                dot.classList.add('bg-success', 'text-white');
+                dot.textContent = btn.textContent;
+            }
+            lauteState.currentIndex += 1;
+            updateLauteInfo();
+            if (lauteState.currentIndex >= lauteState.sequenceLen) {
+                finishLauteQuestion();
+            }
+        } else {
+            lauteState.wrongPicks += 1;
+            updateLauteInfo();
+            btn.classList.add('btn-danger');
+            btn.classList.remove('btn-outline-primary');
+            setTimeout(() => {
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-outline-primary');
+            }, 500);
+        }
+    }
+
+    function finishLauteQuestion() {
+        if (!lauteState) return;
+        challengeResults.push({
+            id: lauteState.qid,
+            attempts: 1,
+            picks: lauteState.picks,
+            replays: lauteState.replays,
+            wrong_picks: lauteState.wrongPicks,
+        });
+        lauteState = null;
+        // Advance / finish like other challenges.
+        currentQuestionIndex += 1;
+        if (currentQuestionIndex >= currentChallenge.length) {
+            finishChallenge();
+        } else {
+            loadQuestion();
+        }
+    }
+
+    // ============================================================
+    // LAUTE STUDIO — admin recording UI
+    // ============================================================
+    let lauteAdminState = {
+        items: [],
+        currentSlug: null,
+        mediaStream: null,
+        recorder: null,
+        recordedChunks: [],
+        recordedBlob: null,    // raw WebM/Opus from MediaRecorder
+        encodedBlob: null,     // re-encoded MP3 ready for upload
+        previewAudio: null,
+    };
+
+    async function loadLauteAdmin() {
+        const list = document.getElementById('laute-list');
+        if (!list) return;
+        list.innerHTML = '<div class="text-muted small">Lade...</div>';
+        try {
+            const res = await fetch('api/admin.php?action=list_laute');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed');
+            lauteAdminState.items = data.items;
+            renderLauteAdminList();
+        } catch (e) {
+            list.innerHTML = '<div class="text-danger small">Fehler: ' + (e.message || e) + '</div>';
+        }
+    }
+
+    function renderLauteAdminList() {
+        const list = document.getElementById('laute-list');
+        if (!list) return;
+        list.innerHTML = '';
+        // Group by `group` for readability.
+        const groups = {};
+        lauteAdminState.items.forEach(it => {
+            (groups[it.group] = groups[it.group] || []).push(it);
+        });
+        Object.keys(groups).sort().forEach(g => {
+            const h = document.createElement('div');
+            h.className = 'fw-bold text-muted small mt-2';
+            h.textContent = g;
+            list.appendChild(h);
+            groups[g].forEach(it => {
+                const row = document.createElement('div');
+                row.className = 'list-group-item d-flex align-items-center gap-2';
+                row.setAttribute('data-slug-row', it.slug);
+                row.innerHTML = `
+                    <span class="badge laute-row-badge ${it.has_audio ? 'bg-success' : 'bg-secondary'}" style="min-width:1.6rem;">${it.has_audio ? '✓' : '·'}</span>
+                    <span class="fw-bold" style="min-width:5rem;">${escapeHtml(it.label)}</span>
+                    <span class="text-muted small font-monospace">${escapeHtml(it.slug)}</span>
+                    <span class="ms-auto d-flex gap-1">
+                        <button class="btn btn-outline-primary btn-sm laute-row-play" data-slug="${escapeHtml(it.slug)}" ${it.has_audio ? '' : 'disabled'}>▶</button>
+                        <button class="btn btn-outline-danger btn-sm laute-row-select" data-slug="${escapeHtml(it.slug)}">🎙️ Aufnehmen</button>
+                        <button class="btn btn-outline-secondary btn-sm laute-row-del" data-slug="${escapeHtml(it.slug)}" ${it.has_audio ? '' : 'disabled'}>🗑️</button>
+                    </span>
+                `;
+                list.appendChild(row);
+            });
+        });
+        list.querySelectorAll('.laute-row-play').forEach(b => b.addEventListener('click', () => {
+            const a = new Audio('audio/laute/' + encodeURIComponent(b.dataset.slug) + '.mp3?t=' + Date.now());
+            a.play().catch(err => console.warn('Play failed:', err));
+        }));
+        list.querySelectorAll('.laute-row-select').forEach(b => b.addEventListener('click', () => selectLauteForRecording(b.dataset.slug)));
+        list.querySelectorAll('.laute-row-del').forEach(b => b.addEventListener('click', async () => {
+            if (!confirm('Aufnahme für "' + b.dataset.slug + '" wirklich löschen?')) return;
+            const res = await fetch('api/admin.php?action=delete_laute', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ slug: b.dataset.slug }),
+            });
+            const d = await res.json();
+            if (d.success) {
+                const it = lauteAdminState.items.find(x => x.slug === b.dataset.slug);
+                if (it) { it.has_audio = false; updateLauteRowInPlace(it); }
+            } else {
+                alert(d.error || 'Fehler');
+            }
+        }));
+    }
+
+    function selectLauteForRecording(slug) {
+        lauteAdminState.currentSlug = slug;
+        const cur = document.getElementById('laute-current');
+        if (cur) {
+            cur.textContent = slug;
+            cur.className = 'badge bg-primary';
+        }
+        document.getElementById('btn-laute-rec-start').disabled = false;
+        document.getElementById('btn-laute-rec-stop').disabled  = true;
+        document.getElementById('btn-laute-rec-preview').disabled = true;
+        document.getElementById('btn-laute-rec-save').disabled = true;
+        document.getElementById('btn-laute-rec-discard').disabled = true;
+        setLauteRecMsg('Bereit. Klicke ●  um aufzunehmen.', 'text-muted');
+    }
+
+    function setLauteRecMsg(msg, cls) {
+        const el = document.getElementById('laute-rec-msg');
+        if (el) {
+            el.textContent = msg;
+            el.className = 'small ' + (cls || '');
+        }
+    }
+
+    async function startLauteRecording() {
+        if (!lauteAdminState.currentSlug) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+            }});
+            lauteAdminState.mediaStream = stream;
+            lauteAdminState.recordedChunks = [];
+            lauteAdminState.recordedBlob = null;
+            lauteAdminState.encodedBlob = null;
+            const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                       : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+                       : '';
+            const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+            lauteAdminState.recorder = rec;
+            rec.ondataavailable = e => { if (e.data && e.data.size) lauteAdminState.recordedChunks.push(e.data); };
+            rec.onstop = async () => {
+                stream.getTracks().forEach(t => t.stop());
+                lauteAdminState.recordedBlob = new Blob(lauteAdminState.recordedChunks, { type: rec.mimeType || 'audio/webm' });
+                setLauteRecMsg('Kodiere zu MP3 ...', 'text-muted');
+                try {
+                    lauteAdminState.encodedBlob = await encodeBlobToMp3(lauteAdminState.recordedBlob);
+                    setLauteRecMsg('Bereit zum Speichern (' + Math.round(lauteAdminState.encodedBlob.size / 1024) + ' KB).', 'text-success');
+                    document.getElementById('btn-laute-rec-preview').disabled = false;
+                    document.getElementById('btn-laute-rec-save').disabled = false;
+                    document.getElementById('btn-laute-rec-discard').disabled = false;
+                } catch (err) {
+                    console.error(err);
+                    setLauteRecMsg('Encoding-Fehler: ' + (err.message || err), 'text-danger');
+                }
+            };
+            rec.start();
+            setLauteRecMsg('● Aufnahme läuft ...', 'text-danger');
+            document.getElementById('btn-laute-rec-start').disabled = true;
+            document.getElementById('btn-laute-rec-stop').disabled  = false;
+        } catch (e) {
+            setLauteRecMsg('Mikrofon-Zugriff verweigert: ' + (e.message || e), 'text-danger');
+        }
+    }
+
+    function stopLauteRecording() {
+        const rec = lauteAdminState.recorder;
+        if (rec && rec.state !== 'inactive') rec.stop();
+        document.getElementById('btn-laute-rec-stop').disabled = true;
+        document.getElementById('btn-laute-rec-start').disabled = false;
+    }
+
+    function previewLauteRecording() {
+        if (!lauteAdminState.encodedBlob) return;
+        if (lauteAdminState.previewAudio) {
+            try { lauteAdminState.previewAudio.pause(); } catch (_) {}
+            URL.revokeObjectURL(lauteAdminState.previewAudio.src);
+        }
+        const url = URL.createObjectURL(lauteAdminState.encodedBlob);
+        const a = new Audio(url);
+        lauteAdminState.previewAudio = a;
+        a.play().catch(err => console.warn('Preview play failed:', err));
+    }
+
+    async function saveLauteRecording() {
+        if (!lauteAdminState.encodedBlob || !lauteAdminState.currentSlug) return;
+        const slug = lauteAdminState.currentSlug;
+        const fd = new FormData();
+        fd.append('slug', slug);
+        fd.append('audio', lauteAdminState.encodedBlob, slug + '.mp3');
+        setLauteRecMsg('Speichere ...', 'text-muted');
+        try {
+            const res = await fetch('api/admin.php?action=upload_laute', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Upload fehlgeschlagen');
+            setLauteRecMsg('Gespeichert (' + Math.round(data.size / 1024) + ' KB).', 'text-success');
+            discardLauteRecording(true);
+            // Patch local state + row in place — no re-render, no scroll jump.
+            const it = lauteAdminState.items.find(x => x.slug === slug);
+            if (it) {
+                it.has_audio = true;
+                it.size = data.size;
+                it.mtime = Math.floor(Date.now() / 1000);
+                updateLauteRowInPlace(it);
+            }
+        } catch (e) {
+            setLauteRecMsg('Fehler: ' + (e.message || e), 'text-danger');
+        }
+    }
+
+    function updateLauteRowInPlace(it) {
+        const list = document.getElementById('laute-list');
+        if (!list) return;
+        const row = list.querySelector(`[data-slug-row="${CSS.escape(it.slug)}"]`);
+        if (!row) return;
+        const badge   = row.querySelector('.laute-row-badge');
+        const playBtn = row.querySelector('.laute-row-play');
+        const delBtn  = row.querySelector('.laute-row-del');
+        if (badge) {
+            badge.className = 'badge laute-row-badge ' + (it.has_audio ? 'bg-success' : 'bg-secondary');
+            badge.textContent = it.has_audio ? '✓' : '·';
+        }
+        if (playBtn) playBtn.disabled = !it.has_audio;
+        if (delBtn)  delBtn.disabled  = !it.has_audio;
+    }
+
+    function selectNextUnrecordedLaute() {
+        const items = lauteAdminState.items || [];
+        if (!items.length) {
+            setLauteRecMsg('Liste noch nicht geladen.', 'text-warning');
+            return;
+        }
+        // Start scanning after the currently selected slug; wrap around.
+        const startIdx = lauteAdminState.currentSlug
+            ? items.findIndex(x => x.slug === lauteAdminState.currentSlug)
+            : -1;
+        for (let off = 1; off <= items.length; off++) {
+            const it = items[(startIdx + off + items.length) % items.length];
+            if (!it.has_audio) {
+                selectLauteForRecording(it.slug);
+                return;
+            }
+        }
+        setLauteRecMsg('Alle Laute sind bereits aufgenommen!', 'text-success');
+    }
+
+    function discardLauteRecording(silent) {
+        lauteAdminState.recordedChunks = [];
+        lauteAdminState.recordedBlob = null;
+        lauteAdminState.encodedBlob = null;
+        if (lauteAdminState.previewAudio) {
+            try { lauteAdminState.previewAudio.pause(); } catch (_) {}
+            URL.revokeObjectURL(lauteAdminState.previewAudio.src);
+            lauteAdminState.previewAudio = null;
+        }
+        document.getElementById('btn-laute-rec-preview').disabled = true;
+        document.getElementById('btn-laute-rec-save').disabled = true;
+        document.getElementById('btn-laute-rec-discard').disabled = true;
+        if (!silent) setLauteRecMsg('Verworfen.', 'text-muted');
+    }
+
+    /**
+     * Decode an arbitrary audio Blob via Web Audio API and re-encode mono PCM
+     * as MP3 using the global `lamejs` library (vendored).
+     */
+    async function encodeBlobToMp3(blob) {
+        if (typeof lamejs === 'undefined') {
+            throw new Error('lamejs nicht geladen');
+        }
+        const arrayBuf = await blob.arrayBuffer();
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AC();
+        const decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
+        // Mix down to mono.
+        const numCh = decoded.numberOfChannels;
+        const len = decoded.length;
+        const mono = new Float32Array(len);
+        for (let c = 0; c < numCh; c++) {
+            const data = decoded.getChannelData(c);
+            for (let i = 0; i < len; i++) mono[i] += data[i] / numCh;
+        }
+        // Convert Float32 [-1,1] → Int16.
+        const int16 = new Int16Array(len);
+        for (let i = 0; i < len; i++) {
+            let s = Math.max(-1, Math.min(1, mono[i]));
+            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        const sampleRate = decoded.sampleRate | 0;
+        const mp3enc = new lamejs.Mp3Encoder(1, sampleRate, 96);
+        const chunkSize = 1152;
+        const out = [];
+        for (let i = 0; i < int16.length; i += chunkSize) {
+            const buf = int16.subarray(i, i + chunkSize);
+            const mp3buf = mp3enc.encodeBuffer(buf);
+            if (mp3buf.length) out.push(mp3buf);
+        }
+        const flush = mp3enc.flush();
+        if (flush.length) out.push(flush);
+        try { ctx.close(); } catch (_) {}
+        return new Blob(out, { type: 'audio/mpeg' });
+    }
+
+    // Wire up recorder buttons (idempotent: they exist in the admin tab markup).
+    document.getElementById('btn-laute-rec-start')?.addEventListener('click', startLauteRecording);
+    document.getElementById('btn-laute-rec-stop')?.addEventListener('click', stopLauteRecording);
+    document.getElementById('btn-laute-rec-preview')?.addEventListener('click', previewLauteRecording);
+    document.getElementById('btn-laute-rec-save')?.addEventListener('click', saveLauteRecording);
+    document.getElementById('btn-laute-rec-discard')?.addEventListener('click', () => discardLauteRecording(false));
+    document.getElementById('btn-laute-rec-next')?.addEventListener('click', selectNextUnrecordedLaute);
 
     // Kick off
     checkAuth();
