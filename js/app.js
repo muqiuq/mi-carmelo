@@ -318,6 +318,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(stats.frame_slots)) {
             renderFrames(stats.frame_slots);
         }
+        if (stats.heart_frame_owned !== undefined) {
+            renderSpecialFrame('frame-heart', stats.heart_frame_owned, '42%', '15%', '\u{1F496}');
+        }
+        if (stats.medal_frame_owned !== undefined) {
+            renderSpecialFrame('frame-medal', stats.medal_frame_owned, '58%', '15%', '\u{1F3C5}');
+        }
         renderBed(stats.bed_owned);
         // Apply body color
         const petArea = document.getElementById('pet-area');
@@ -544,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const decorEl = document.getElementById('pet-decor');
         if (!decorEl) return;
 
-        decorEl.querySelectorAll('.picture-frame').forEach(el => el.remove());
+        decorEl.querySelectorAll('.picture-frame.frame-turtle, .picture-frame.frame-bunny').forEach(el => el.remove());
 
         // Slot 0 = left turtle, slot 1 = right cat. Below the wall lamps.
         const frameSpots = [
@@ -566,6 +572,24 @@ document.addEventListener('DOMContentLoaded', () => {
             frame.appendChild(inner);
             decorEl.appendChild(frame);
         });
+    }
+
+    function renderSpecialFrame(variant, owned, left, top, emoji) {
+        const decorEl = document.getElementById('pet-decor');
+        if (!decorEl) return;
+
+        decorEl.querySelectorAll('.picture-frame.' + variant).forEach(el => el.remove());
+        if (!owned) return;
+
+        const frame = document.createElement('div');
+        frame.className = 'picture-frame ' + variant;
+        frame.style.left = left;
+        frame.style.top = top;
+        const inner = document.createElement('div');
+        inner.className = 'frame-inner';
+        inner.textContent = emoji;
+        frame.appendChild(inner);
+        decorEl.appendChild(frame);
     }
 
     function renderBed(owned) {
@@ -618,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'col-12 col-md-6';
                 const lockedClass = item.can_afford ? '' : ' shop-item-locked';
-                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'chicken_house' || item.code === 'diamond_buy' || item.code === 'diamond_buy_3' || item.code.startsWith('color_');
+                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'frame_heart' || item.code === 'frame_medal' || item.code === 'chicken_house' || item.code === 'diamond_buy' || item.code === 'diamond_buy_3' || item.code.startsWith('color_');
                 const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
 
                 card.innerHTML = `
@@ -2315,6 +2339,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const mcOptions = document.getElementById('challenge-mc-options');
         const qLabel   = document.getElementById('challenge-question-label');
         const clockFace = document.getElementById('challenge-clock-face');
+
+        // Always hide the laute block up front: the listen branch returns early
+        // and otherwise leaves a stale Laute UI visible underneath.
+        if (q.type !== 'laute') {
+            const lauteBoxReset = document.getElementById('challenge-laute');
+            if (lauteBoxReset) lauteBoxReset.classList.add('d-none');
+        }
 
         // Question type label
         if (q.type === 'gap') {
