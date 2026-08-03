@@ -642,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'col-12 col-md-6';
                 const lockedClass = item.can_afford ? '' : ' shop-item-locked';
-                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'frame_heart' || item.code === 'frame_medal' || item.code === 'chicken_house' || item.code === 'diamond_buy' || item.code === 'diamond_buy_3' || item.code.startsWith('color_');
+                const isImplemented = item.code === 'flower_wall' || item.code === 'small_lamp' || item.code === 'picture_frame' || item.code === 'frame_heart' || item.code === 'frame_medal' || item.code === 'chicken_house' || item.code === 'diamond_buy' || item.code === 'diamond_buy_3' || item.code === 'star_buy' || item.code === 'star_buy_3' || item.code.startsWith('color_');
                 const buyLabel = item.remaining <= 0 ? 'Ausverkauft' : (isImplemented ? 'Kaufen' : 'Bald verfügbar');
 
                 card.innerHTML = `
@@ -1170,27 +1170,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Stat +/- buttons with diamond→star conversion
-    function applyDiamondStarConversion() {
-        const diamondsInput = document.getElementById('edit-user-diamonds');
-        const starsInput = document.getElementById('edit-user-stars');
-        let diamonds = parseInt(diamondsInput.value, 10) || 0;
-        let stars = parseInt(starsInput.value, 10) || 0;
-        if (diamonds >= 10) {
-            const earned = Math.floor(diamonds / 10);
-            stars += earned;
-            diamonds -= earned * 10;
-            diamondsInput.value = diamonds;
-            starsInput.value = stars;
-        }
-    }
-
+    // Stat +/- buttons
     document.querySelectorAll('.btn-stat-plus').forEach(btn => {
         btn.addEventListener('click', () => {
             const input = document.getElementById(btn.dataset.target);
             const step = parseInt(btn.dataset.step, 10) || 1;
             input.value = (parseInt(input.value, 10) || 0) + step;
-            applyDiamondStarConversion();
         });
     });
 

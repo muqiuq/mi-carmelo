@@ -787,9 +787,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
                 if ($streak >= $game_config['correct_words_for_diamond']) {
                     $diamonds++;
                     $streak = 0;
-                    if ($diamonds > 0 && $diamonds % $game_config['diamonds_for_star'] === 0) {
-                        $stars++;
-                    }
                 }
             }
 
@@ -841,9 +838,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
             if ($streak >= $game_config['correct_words_for_diamond']) {
                 $diamonds++;
                 $streak = 0;
-                if ($diamonds > 0 && $diamonds % $game_config['diamonds_for_star'] === 0) {
-                    $stars++;
-                }
             }
             applyListenStats($pdo, (int)$_SESSION['user_id'], (string)$g['tier'], (int)$g['attempts']);
             continue;
@@ -859,14 +853,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'generate') {
             $points_gained += $game_config['points_third_plus_try'];
         }
 
-        // Diamond / Star calculation via config
+        // Diamond calculation via config (stars are bought in the shop)
         if ($streak >= $game_config['correct_words_for_diamond']) {
             $diamonds++;
             $streak = 0; // reset counter
-            
-            if ($diamonds > 0 && $diamonds % $game_config['diamonds_for_star'] === 0) {
-                $stars++;
-            }
         }
         
         // Knowledge Tracking — skip for AI-generated gap questions (id starts with 'gap_')

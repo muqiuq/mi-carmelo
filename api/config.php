@@ -109,6 +109,8 @@ try {
         $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
         $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
         $shopSeed->execute(['diamond_buy_3', '3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 9999, 5]);
+        $shopSeed->execute(['star_buy', 'Stern kaufen', '1 Stern für 15 Diamanten.', 'diamonds', 15, 9999, 5]);
+        $shopSeed->execute(['star_buy_3', '3 Sterne kaufen', '3 Sterne für 30 Diamanten.', 'diamonds', 30, 9999, 5]);
         $shopSeed->execute(['color_pink',   'Farbe: Rosa',  'Färbe Carmelo rosa.',   'points', 50, 9999, 6]);
         $shopSeed->execute(['color_blue',   'Farbe: Blau',  'Färbe Carmelo blau.',   'points', 50, 9999, 7]);
         $shopSeed->execute(['color_green',  'Farbe: Grün', 'Färbe Carmelo grün.',  'points', 50, 9999, 8]);
@@ -206,6 +208,8 @@ try {
     $shopSeed->execute(['chicken_house', 'Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 1, 40]);
     $shopSeed->execute(['diamond_buy', 'Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 9999, 5]);
     $shopSeed->execute(['diamond_buy_3', '3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 9999, 5]);
+    $shopSeed->execute(['star_buy', 'Stern kaufen', '1 Stern für 15 Diamanten.', 'diamonds', 15, 9999, 5]);
+    $shopSeed->execute(['star_buy_3', '3 Sterne kaufen', '3 Sterne für 30 Diamanten.', 'diamonds', 30, 9999, 5]);
     $shopSeed->execute(['color_pink',   'Farbe: Rosa',  'Färbe Carmelo rosa.',   'points', 50, 9999, 6]);
     $shopSeed->execute(['color_blue',   'Farbe: Blau',  'Färbe Carmelo blau.',   'points', 50, 9999, 7]);
     $shopSeed->execute(['color_green',  'Farbe: Grün', 'Färbe Carmelo grün.',  'points', 50, 9999, 8]);
@@ -230,6 +234,8 @@ try {
     $shopUpdate->execute(['Bett', 'Ein kuscheliges Premium-Bett für dein Huhn.', 'stars', 10, 'chicken_house']);
     $shopUpdate->execute(['Diamant kaufen', '1 Diamant für 500 Punkte.', 'points', 500, 'diamond_buy']);
     $shopUpdate->execute(['3 Diamanten kaufen', '3 Diamanten für 1000 Punkte.', 'points', 1000, 'diamond_buy_3']);
+    $shopUpdate->execute(['Stern kaufen', '1 Stern für 15 Diamanten.', 'diamonds', 15, 'star_buy']);
+    $shopUpdate->execute(['3 Sterne kaufen', '3 Sterne für 30 Diamanten.', 'diamonds', 30, 'star_buy_3']);
     $shopUpdate->execute(['Farbe: Rosa',  'Färbe Carmelo rosa.',  'points', 50, 'color_pink']);
     $shopUpdate->execute(['Farbe: Blau',  'Färbe Carmelo blau.',  'points', 50, 'color_blue']);
     $shopUpdate->execute(['Farbe: Grün', 'Färbe Carmelo grün.', 'points', 50, 'color_green']);

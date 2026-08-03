@@ -50,7 +50,7 @@
 - Track knowledge: Update `user_knowledge` per question.
 - Track Diamonds/Stars:
   - Every 10 correct first-try words = +1 Diamond.
-  - Every 10 Diamonds = +1 Star.
+  - Stars are bought in the shop with diamonds (15 diamonds → 1 star, 30 diamonds → 3 stars).
 - **Frontend Integration:** Update the UI counters dynamically, show points. Trigger the "Star earned" animation.
 
 ## Step 8: Tying it Together (The Game Loop)

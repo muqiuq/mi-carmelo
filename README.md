@@ -6,7 +6,7 @@ Mi Carmelo is a web-based virtual pet chicken game where players care for an ani
 
 - Pure CSS-drawn chicken sprite with idle walking, hungry begging, eating, petting, star celebration, and death animations
 - Challenge-based feeding: answer 3–5 questions correctly to feed, 1 question to pet
-- Reward economy: earn points, diamonds (every 10 correct first-tries), and stars (every 10 diamonds)
+- Reward economy: earn points, diamonds (every 10 correct first-tries), and buy stars in the shop with diamonds (15 💎 → 1 ⭐, 30 💎 → 3 ⭐)
 - Per-user knowledge tracking: questions answered well are prioritized out, weaker ones appear more often
 - Web Push notifications when the chicken is hungry
 - Admin panel: manage users, edit questions, debug push subscriptions, access token gating
@@ -57,7 +57,6 @@ All game parameters live in `data/game_config.php`:
 'points_second_try' => 5,
 'points_third_plus_try' => 1,
 'correct_words_for_diamond' => 10,
-'diamonds_for_star' => 10,
 'knows_well_threshold' => 3,
 'require_access_token' => false,
 'base_url' => 'http://localhost:8080/',

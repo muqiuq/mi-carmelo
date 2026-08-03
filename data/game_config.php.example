@@ -28,7 +28,6 @@ return [
 
     // Rewards thresholds
     'correct_words_for_diamond' => 10,
-    'diamonds_for_star' => 10,
 
     // Knowledge tracking
     // Difference between correct and incorrect attempts to be considered "known well"

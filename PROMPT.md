@@ -13,7 +13,7 @@
 - The baby chicken is animated
 - the giving food feature is animated
 - Every 10 correct words (in the first try) gives one diamond
-- ten diamonds turn into 1 star (with animation when reached)
+- stars can be bought in the shop with diamonds (15 diamonds → 1 star, 30 diamonds → 3 stars, with animation when bought)
 - the challenge: display question - user has box to enter response - if correct: show correct and user can go next with button, if not correct, display not correct and the correct answer and a Repeat button - display progress during the the challenge
 - for the pet challenge only one question must be answered
 - if the chicken is hungry, it will show a bubble "I'm hungry :-( Feed me"

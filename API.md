@@ -23,7 +23,7 @@
 | Action | Method | Auth | Params | Description |
 |--------|--------|------|--------|-------------|
 | `generate` | GET | User | `type` (pet\|feed\|revive) | Get questions (1 for pet, 3–5 for feed/revive) |
-| `submit` | POST | User | `results[]` {id, attempts}, `type` | Award points/diamonds/stars, track knowledge, feed/revive |
+| `submit` | POST | User | `results[]` {id, attempts}, `type` | Award points/diamonds, track knowledge, feed/revive |
 
 ## Shop — `api/shop.php`
 

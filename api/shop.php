@@ -220,33 +220,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
             $insDecor = $pdo->prepare("INSERT INTO user_decorations (user_id, item_code, slot_index) VALUES (?, ?, 0)");
             $insDecor->execute([$_SESSION['user_id'], $item['code']]);
         } elseif ($item['code'] === 'diamond_buy') {
-            // Grant +1 diamond; convert to star if a new threshold is crossed
-            $game_config = require __DIR__ . '/../data/game_config.php';
-            $diamondsForStar = max(1, (int)($game_config['diamonds_for_star'] ?? 10));
-            $oldDiamonds = (int)$user['diamonds'];
-            $newDiamonds = $oldDiamonds + 1;
-            $newStars    = (int)$user['stars'];
-            $starsEarned = (int)floor($newDiamonds / $diamondsForStar) - (int)floor($oldDiamonds / $diamondsForStar);
-            if ($starsEarned > 0) {
-                $newStars    += $starsEarned;
-                $newDiamonds -= $starsEarned * $diamondsForStar;
-            }
-            $updDiamond = $pdo->prepare("UPDATE users SET diamonds = ?, stars = ? WHERE id = ?");
-            $updDiamond->execute([$newDiamonds, $newStars, $_SESSION['user_id']]);
+            // Grant +1 diamond
+            $updDiamond = $pdo->prepare("UPDATE users SET diamonds = diamonds + 1 WHERE id = ?");
+            $updDiamond->execute([$_SESSION['user_id']]);
         } elseif ($item['code'] === 'diamond_buy_3') {
-            // Grant +3 diamonds; convert to stars if thresholds are crossed
-            $game_config = require __DIR__ . '/../data/game_config.php';
-            $diamondsForStar = max(1, (int)($game_config['diamonds_for_star'] ?? 10));
-            $oldDiamonds = (int)$user['diamonds'];
-            $newDiamonds = $oldDiamonds + 3;
-            $newStars    = (int)$user['stars'];
-            $starsEarned = (int)floor($newDiamonds / $diamondsForStar) - (int)floor($oldDiamonds / $diamondsForStar);
-            if ($starsEarned > 0) {
-                $newStars    += $starsEarned;
-                $newDiamonds -= $starsEarned * $diamondsForStar;
-            }
-            $updDiamond = $pdo->prepare("UPDATE users SET diamonds = ?, stars = ? WHERE id = ?");
-            $updDiamond->execute([$newDiamonds, $newStars, $_SESSION['user_id']]);
+            // Grant +3 diamonds
+            $updDiamond = $pdo->prepare("UPDATE users SET diamonds = diamonds + 3 WHERE id = ?");
+            $updDiamond->execute([$_SESSION['user_id']]);
+        } elseif ($item['code'] === 'star_buy') {
+            // Grant +1 star
+            $updStar = $pdo->prepare("UPDATE users SET stars = stars + 1 WHERE id = ?");
+            $updStar->execute([$_SESSION['user_id']]);
+        } elseif ($item['code'] === 'star_buy_3') {
+            // Grant +3 stars
+            $updStar = $pdo->prepare("UPDATE users SET stars = stars + 3 WHERE id = ?");
+            $updStar->execute([$_SESSION['user_id']]);
         } elseif (strncmp($item['code'], 'color_', 6) === 0) {
             // Store the chosen color in the users table
             $validColors = ['color_pink', 'color_blue', 'color_green', 'color_purple', 'color_white', 'color_default'];
@@ -270,7 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'buy') {
 
         $pdo->commit();
 
-        $earnedStar = isset($newStars) && $newStars > (int)$user['stars'];
+        $earnedStar = isset($updStar);
         $newColor = isset($colorUpd) ? ($newColorValue ?? null) : null;
         echo json_encode(['success' => true, 'earned_star' => $earnedStar, 'pet_color' => $newColor]);
         exit;
