@@ -538,6 +538,7 @@ if (file_exists($db_file)) {
             <div class="d-grid mx-auto mb-3" style="max-width: 360px;">
                 <button id="btn-slot-spin" class="btn btn-warning btn-lg fw-bold" style="font-size:1.3rem; padding: 0.75rem;">Spin!</button>
                 <div id="slot-cost" class="small text-muted text-center mt-1"></div>
+                <button id="btn-slot-sound" type="button" class="btn btn-outline-secondary btn-sm mt-2">🔊 Sound an</button>
             </div>
 
             <div class="text-center mb-3">

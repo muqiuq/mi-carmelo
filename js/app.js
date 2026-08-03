@@ -701,6 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const slotFactorPicker = document.getElementById('slot-factor-picker');
     const slotCostEl       = document.getElementById('slot-cost');
     const slotBalanceEl    = document.getElementById('slot-balance');
+    const btnSlotSound     = document.getElementById('btn-slot-sound');
     if (viewSlot) allViews.push(viewSlot);
 
     let slotConfig    = null;            // { fruits, base_cost, allowed_factor, payout_mult }
@@ -710,6 +711,200 @@ document.addEventListener('DOMContentLoaded', () => {
     let slotSpinning  = false;
     let slotFreeSpins = 0;               // free spins available
     let slotStageEl   = null;            // animated centerpiece element
+
+    // --- SLOT SOUNDS (synthesized via Web Audio API, no files needed) ---
+    const slotSounds = {
+        enabled: localStorage.getItem('slot_sound_muted') !== '1',
+        _ctx: null,
+        _master: null,
+        _noiseBuf: null,
+        // Lazy singleton AudioContext; created/resumed inside a user gesture (Spin click).
+        ctx() {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            if (!this._ctx) {
+                this._ctx = new AC();
+                // Master bus: a gentle limiter-ish gain feeding a soft compressor so
+                // layered voices never clip and everything sits at a consistent level.
+                this._master = this._ctx.createGain();
+                this._master.gain.value = 0.7;
+                let node = this._master;
+                if (this._ctx.createDynamicsCompressor) {
+                    const comp = this._ctx.createDynamicsCompressor();
+                    comp.threshold.value = -12;
+                    comp.knee.value = 24;
+                    comp.ratio.value = 4;
+                    comp.attack.value = 0.003;
+                    comp.release.value = 0.25;
+                    this._master.connect(comp);
+                    node = comp;
+                }
+                node.connect(this._ctx.destination);
+            }
+            if (this._ctx.state === 'suspended') this._ctx.resume().catch(() => {});
+            return this._ctx;
+        },
+        // Cached 2s white-noise buffer (reused for every noise voice).
+        noiseBuffer(ctx) {
+            if (!this._noiseBuf) {
+                const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                this._noiseBuf = buf;
+            }
+            return this._noiseBuf;
+        },
+        // A tonal voice with a click-free ADSR-style envelope. `partials` layers
+        // extra detuned/harmonic oscillators for a warmer, bell-like body.
+        tone(ctx, { freq, type = 'sine', t0, dur, peak = 0.25, attack = 0.008,
+                    glideTo = null, partials = [] }) {
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0.0001, t0);
+            env.gain.exponentialRampToValueAtTime(peak, t0 + attack);
+            env.gain.exponentialRampToValueAtTime(0.0006, t0 + dur);
+            env.connect(this._master);
+            const voices = [{ freq, type, gain: 1 }].concat(partials);
+            voices.forEach(v => {
+                const osc = ctx.createOscillator();
+                const g = ctx.createGain();
+                g.gain.value = v.gain;
+                osc.type = v.type || type;
+                osc.frequency.setValueAtTime(v.freq, t0);
+                if (glideTo && v.glide !== false) {
+                    osc.frequency.exponentialRampToValueAtTime(
+                        glideTo * (v.freq / freq), t0 + dur);
+                }
+                osc.connect(g).connect(env);
+                osc.start(t0);
+                osc.stop(t0 + dur + 0.02);
+            });
+        },
+        // A filtered noise burst (for clicks, crashes, explosions).
+        noise(ctx, { t0, dur, peak = 0.3, type = 'lowpass',
+                     freqFrom = 2000, freqTo = 400, q = 0.7 }) {
+            const src = ctx.createBufferSource();
+            src.buffer = this.noiseBuffer(ctx);
+            src.loop = true;
+            const filter = ctx.createBiquadFilter();
+            filter.type = type;
+            filter.Q.value = q;
+            filter.frequency.setValueAtTime(freqFrom, t0);
+            filter.frequency.exponentialRampToValueAtTime(Math.max(20, freqTo), t0 + dur);
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(peak, t0 + 0.006);
+            g.gain.exponentialRampToValueAtTime(0.0005, t0 + dur);
+            src.connect(filter).connect(g).connect(this._master);
+            src.start(t0);
+            src.stop(t0 + dur + 0.02);
+        },
+        // Short mechanical reel tick. Subtle + slightly randomised so a long run
+        // of them sounds like a spinning wheel rather than a machine gun.
+        playTick() {
+            if (!this.enabled) return;
+            const ctx = this.ctx();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            // A tiny pitched wood-block-ish body...
+            this.tone(ctx, {
+                freq: 900 + Math.random() * 120, type: 'triangle',
+                t0: t, dur: 0.045, peak: 0.14, attack: 0.001,
+                partials: [{ freq: 1800, type: 'sine', gain: 0.35 }],
+            });
+            // ...plus a soft filtered click for the mechanical texture.
+            this.noise(ctx, {
+                t0: t, dur: 0.03, peak: 0.06,
+                type: 'bandpass', freqFrom: 2600, freqTo: 1600, q: 1.2,
+            });
+        },
+        // Triumphant rising arpeggio that lands on a bright major chord + sparkle.
+        playWin() {
+            if (!this.enabled) return;
+            const ctx = this.ctx();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            const arp = [523.25, 659.25, 783.99, 1046.5, 1318.5]; // C5 E5 G5 C6 E6
+            arp.forEach((f, i) => {
+                const at = t + i * 0.09;
+                this.tone(ctx, {
+                    freq: f, type: 'triangle', t0: at, dur: 0.5, peak: 0.22, attack: 0.006,
+                    partials: [
+                        { freq: f * 2, type: 'sine', gain: 0.28 },
+                        { freq: f * 0.5, type: 'sine', gain: 0.18 },
+                    ],
+                });
+            });
+            // Final sustained major chord (C6/E6/G6) for a satisfying resolution.
+            const chordAt = t + arp.length * 0.09 + 0.02;
+            [1046.5, 1318.5, 1568.0].forEach(f => {
+                this.tone(ctx, {
+                    freq: f, type: 'triangle', t0: chordAt, dur: 1.0, peak: 0.16, attack: 0.01,
+                    partials: [{ freq: f * 2, type: 'sine', gain: 0.2 }],
+                });
+            });
+            // High sparkle tail.
+            [2093, 2637, 3136].forEach((f, i) => {
+                this.tone(ctx, {
+                    freq: f, type: 'sine', t0: chordAt + 0.12 + i * 0.06,
+                    dur: 0.35, peak: 0.1, attack: 0.004,
+                });
+            });
+        },
+        // Cute coin/xylophone chime for the cherry refund.
+        playCherry() {
+            if (!this.enabled) return;
+            const ctx = this.ctx();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            [1318.5, 1760.0, 2093.0].forEach((f, i) => { // E6 A6 C7 – bright & bouncy
+                this.tone(ctx, {
+                    freq: f, type: 'sine', t0: t + i * 0.1, dur: 0.55, peak: 0.26, attack: 0.003,
+                    partials: [{ freq: f * 3, type: 'sine', gain: 0.12 }],
+                });
+            });
+        },
+        // Big multi-layer explosion for the atomic bomb.
+        playNuke() {
+            if (!this.enabled) return;
+            const ctx = this.ctx();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            // 1) Sharp initial crack.
+            this.noise(ctx, {
+                t0: t, dur: 0.12, peak: 0.5,
+                type: 'highpass', freqFrom: 3000, freqTo: 1200, q: 0.5,
+            });
+            // 2) Body: broadband noise sweeping down = the blast.
+            this.noise(ctx, {
+                t0: t + 0.01, dur: 1.6, peak: 0.55,
+                type: 'lowpass', freqFrom: 1800, freqTo: 50, q: 0.8,
+            });
+            // 3) Sub-bass boom that punches then rumbles away.
+            this.tone(ctx, {
+                freq: 130, type: 'sine', t0: t, dur: 1.8, peak: 0.6, attack: 0.004,
+                glideTo: 32,
+                partials: [{ freq: 65, type: 'sine', gain: 0.5, glide: false }],
+            });
+            // 4) A little gritty mid layer for weight.
+            this.tone(ctx, {
+                freq: 220, type: 'sawtooth', t0: t, dur: 0.5, peak: 0.18, attack: 0.002,
+                glideTo: 60,
+            });
+        },
+    };
+
+    function updateSlotSoundLabel() {
+        if (!btnSlotSound) return;
+        btnSlotSound.textContent = slotSounds.enabled ? '🔊 Sound an' : '🔇 Sound aus';
+    }
+    if (btnSlotSound) {
+        updateSlotSoundLabel();
+        btnSlotSound.addEventListener('click', () => {
+            slotSounds.enabled = !slotSounds.enabled;
+            localStorage.setItem('slot_sound_muted', slotSounds.enabled ? '0' : '1');
+            updateSlotSoundLabel();
+        });
+    }
 
     // Build a 6×6 grid; only the perimeter cells (20 of them) hold fruits.
     function buildSlotBoard() {
@@ -948,6 +1143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 slotPerimeter[step % ringLen].classList.add('slot-active');
+                slotSounds.playTick();
                 const nextDelay = delays[step] - (delays[step - 1] || 0);
                 step++;
                 setTimeout(tick, Math.max(20, nextDelay));
@@ -1046,11 +1242,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const isCherry = sp.outcome === 'cherry';
             finalEl.classList.add(sp.win ? 'slot-final-win' : 'slot-final-lose');
             if (sp.win) {
+                slotSounds.playWin();
                 spawnSlotConfetti();
                 showStageWin(sp.landing);
             } else if (isNuke) {
+                slotSounds.playNuke();
                 slotResultEl.textContent = `☢️ Atomschlag! ${selLabel} verloren …`;
             } else if (isCherry) {
+                slotSounds.playCherry();
                 slotResultEl.textContent = `🍒 Cherry Bonus! Einsatz zurück (${sp.payout} 🪙)`;
                 showCherryRefundOverlay();
             }
